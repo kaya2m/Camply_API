@@ -1,0 +1,6 @@
+@Camply.API_HostAddress = http://localhost:5129
+
+GET {{Camply.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
