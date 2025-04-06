@@ -12,6 +12,11 @@ namespace Camply.Domain.Common
     public abstract class BaseTrackingEntity
     {
         /// <summary>
+        /// Benzersiz tanımlayıcı (Primary Key)
+        /// </summary>
+        public Guid Id { get; set; }
+
+        /// <summary>
         /// Oluşturulma tarihi
         /// </summary>
         public DateTime CreatedAt { get; set; }
