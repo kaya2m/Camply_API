@@ -1,6 +1,7 @@
 ﻿using Camply.Application.Auth.Interfaces;
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
+using Camply.Application.Users.Interfaces;
 using Camply.Domain.Common;
 using Camply.Domain.Repositories;
 using Camply.Infrastructure.Data;
@@ -48,7 +49,7 @@ namespace Camply.API.Configuration
             services.AddScoped<IAuthService, AuthService>();
 
             // User services
-            //services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserService, UserService>();
 
             return services;
         }

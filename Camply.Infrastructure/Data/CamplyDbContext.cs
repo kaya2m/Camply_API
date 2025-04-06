@@ -22,8 +22,8 @@ namespace Camply.Infrastructure.Data
 
         public CamplyDbContext(
             DbContextOptions<CamplyDbContext> options,
-            ICurrentUserService currentUserService,
-            IDateTime dateTime) : base(options)
+          ICurrentUserService currentUserService = null,
+            IDateTime dateTime = null) : base(options)
         {
             _currentUserService = currentUserService;
             _dateTime = dateTime;
@@ -53,8 +53,34 @@ namespace Camply.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(CamplyDbContext).Assembly);
+            var assembly = typeof(CamplyDbContext).Assembly; 
 
+            var configTypes = assembly
+                .GetTypes()
+                .Where(t => !t.IsAbstract && !t.IsInterface
+                    && t.GetInterfaces().Any(i => i.IsGenericType
+                        && i.GetGenericTypeDefinition() == typeof(IEntityTypeConfiguration<>)));
+
+       
+            // Her bir konfigürasyonu tek tek uygula
+            foreach (var configType in configTypes)
+            {
+                
+                    var config = Activator.CreateInstance(configType);
+                    var entityType = configType.GetInterfaces()
+                        .First(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEntityTypeConfiguration<>))
+                        .GetGenericArguments()[0];
+
+                    System.Diagnostics.Debug.WriteLine($"Applying configuration for entity type: {entityType.Name}");
+
+                    var applyConfigMethod = typeof(ModelBuilder)
+                        .GetMethod("ApplyConfiguration")
+                        .MakeGenericMethod(entityType);
+
+                    applyConfigMethod.Invoke(modelBuilder, new[] { config });
+            }
+
+            // Soft delete filtreleri için mevcut kodunuz
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 if (typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType))
@@ -64,7 +90,6 @@ namespace Camply.Infrastructure.Data
                     var isDeletedProperty = Expression.Call(propertyMethodInfo, parameter, Expression.Constant("IsDeleted"));
                     var notIsDeletedValue = Expression.Not(isDeletedProperty);
                     var lambda = Expression.Lambda(notIsDeletedValue, parameter);
-
                     modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
                 }
             }
@@ -78,17 +103,17 @@ namespace Camply.Infrastructure.Data
                 {
                     case EntityState.Added:
                         entry.Entity.CreatedBy = _currentUserService.UserId;
-                        entry.Entity.CreatedAt = _dateTime.Now;
+                        entry.Entity.CreatedAt = _dateTime.UtcNow;
                         break;
                     case EntityState.Modified:
                         entry.Entity.LastModifiedBy = _currentUserService.UserId;
-                        entry.Entity.LastModifiedAt = _dateTime.Now;
+                        entry.Entity.LastModifiedAt = _dateTime.UtcNow;
                         break;
                     case EntityState.Deleted:
                         entry.State = EntityState.Modified;
                         entry.Entity.IsDeleted = true;
                         entry.Entity.DeletedBy = _currentUserService.UserId;
-                        entry.Entity.DeletedAt = _dateTime.Now;
+                        entry.Entity.DeletedAt = _dateTime.UtcNow;
                         break;
                 }
             }
@@ -97,7 +122,7 @@ namespace Camply.Infrastructure.Data
             {
                 if (entry.State == EntityState.Added)
                 {
-                    entry.Entity.CreatedAt = _dateTime.Now;
+                    entry.Entity.CreatedAt = _dateTime.UtcNow;
                 }
             }
 
