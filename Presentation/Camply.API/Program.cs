@@ -4,7 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
+builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddApplicationServices()
                 .AddJwtAuthentication(builder.Configuration)

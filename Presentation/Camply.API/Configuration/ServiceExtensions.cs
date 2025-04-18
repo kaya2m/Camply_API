@@ -6,6 +6,7 @@ using Camply.Domain.Common;
 using Camply.Domain.Repositories;
 using Camply.Infrastructure.Data;
 using Camply.Infrastructure.Data.Repositories;
+using Camply.Infrastructure.ExternalServices;
 using Camply.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,8 @@ namespace Camply.API.Configuration
             // Auth services
             services.AddScoped<TokenService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<GoogleAuthService>();
+            services.AddScoped<FacebookAuthService>();
 
             // User services
             services.AddScoped<IUserService, UserService>();
