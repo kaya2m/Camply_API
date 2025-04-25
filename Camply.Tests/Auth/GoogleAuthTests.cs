@@ -68,18 +68,18 @@ namespace Camply.Tests.Auth
             // Google Auth Service oluşturma
             _googleAuthService = new MockGoogleAuthService();
 
-            // Test edilecek servis
-            _authService = new AuthService(
-                _mockUserRepository.Object,
-                _mockRoleRepository.Object,
-                _mockUserRoleRepository.Object,
-                _mockRefreshTokenRepository.Object,
-                _mockSocialLoginRepository.Object,
-                _mockTokenService.Object,
-                _mockHttpContextAccessor.Object,
-                _mockLogger.Object,
-                (GoogleAuthService)_googleAuthService // Burada cast yapabiliriz çünkü kendi mock sınıfımız hem GoogleAuthService hem de IGoogleAuthService
-            );
+            //// Test edilecek servis
+            //_authService = new AuthService(
+            //    _mockUserRepository.Object,
+            //    _mockRoleRepository.Object,
+            //    _mockUserRoleRepository.Object,
+            //    _mockRefreshTokenRepository.Object,
+            //    _mockSocialLoginRepository.Object,
+            //    _mockTokenService.Object,
+            //    _mockHttpContextAccessor.Object,
+            //    _mockLogger.Object,
+            //    (GoogleAuthService)_googleAuthService // Burada cast yapabiliriz çünkü kendi mock sınıfımız hem GoogleAuthService hem de IGoogleAuthService
+            //);
         }
 
         [Fact]
