@@ -5,6 +5,7 @@ using Camply.Application.Auth.Services;
 using Camply.Domain.Auth;
 using Camply.Domain.Enums;
 using Camply.Domain.Repositories;
+using Camply.Infrastructure.ExternalServices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +18,8 @@ namespace Camply.Infrastructure.Services
         private readonly IRepository<UserRole> _userRoleRepository;
         private readonly IRepository<RefreshToken> _refreshTokenRepository;
         private readonly IRepository<SocialLogin> _socialLoginRepository;
+        private readonly GoogleAuthService _googleAuthService;
+        private readonly FacebookAuthService _facebookAuthService;
         private readonly TokenService _tokenService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuthService> _logger;
@@ -29,7 +32,9 @@ namespace Camply.Infrastructure.Services
             IRepository<SocialLogin> socialLoginRepository,
             TokenService tokenService,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            GoogleAuthService googleAuthService,
+            FacebookAuthService facebookAuthService)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
@@ -39,6 +44,8 @@ namespace Camply.Infrastructure.Services
             _tokenService = tokenService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
+            _googleAuthService = googleAuthService;
+            _facebookAuthService = facebookAuthService;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -243,10 +250,10 @@ namespace Camply.Infrastructure.Services
                 switch (request.Provider.ToLower())
                 {
                     case "google":
-                        (email, name, providerKey) = ExtractGoogleUserInfo(request.AccessToken, request.IdToken);
+                        (email, name, providerKey) = await ExtractGoogleUserInfo(request.AccessToken, request.IdToken);
                         break;
                     case "facebook":
-                        (email, name, providerKey) = ExtractFacebookUserInfo(request.AccessToken);
+                        (email, name, providerKey) =await ExtractFacebookUserInfo(request.AccessToken);
                         break;
                     case "twitter":
                         (email, name, providerKey) = ExtractTwitterUserInfo(request.AccessToken);
@@ -454,7 +461,7 @@ namespace Camply.Infrastructure.Services
                     Message = "Token refreshed",
                     AccessToken = accessToken,
                     RefreshToken = newRefreshToken.Token,
-                    Expiration = DateTime.UtcNow.AddMinutes(30), // Match with JWT settings
+                    Expiration = DateTime.UtcNow.AddMinutes(30),
                     User = new UserInfo
                     {
                         Id = user.Id,
@@ -521,22 +528,43 @@ namespace Camply.Infrastructure.Services
 
         #region Helper Methods
 
-        private (string email, string name, string providerKey) ExtractGoogleUserInfo(string accessToken, string idToken)
+        private async Task<(string email, string name, string providerKey)> ExtractGoogleUserInfo(string accessToken, string idToken)
         {
-            // In a real implementation, you would validate the token with Google API
-            // For this example, we'll just return dummy values
+            try
+            {
+                var userInfo = await _googleAuthService.ValidateIdTokenAsync(idToken);
 
-            // Simulated data - replace with actual implementation
-            return ($"user_{Guid.NewGuid()}@gmail.com", $"Google User {DateTime.Now.Ticks}", Guid.NewGuid().ToString());
+                return (userInfo.Email, userInfo.Name, userInfo.ProviderKey);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.LogWarning("Invalid Google token attempted");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating Google token");
+                throw new UnauthorizedAccessException("Error processing Google authentication");
+            }
         }
-
-        private (string email, string name, string providerKey) ExtractFacebookUserInfo(string accessToken)
+        private async Task<(string email, string name, string providerKey)> ExtractFacebookUserInfo(string accessToken)
         {
-            // In a real implementation, you would validate the token with Facebook Graph API
-            // For this example, we'll just return dummy values
+            try
+            {
+                var userInfo = await _facebookAuthService.ValidateAccessTokenAsync(accessToken);
 
-            // Simulated data - replace with actual implementation
-            return ($"user_{Guid.NewGuid()}@facebook.com", $"Facebook User {DateTime.Now.Ticks}", Guid.NewGuid().ToString());
+                return (userInfo.Email, userInfo.Name, userInfo.ProviderKey);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.LogWarning("Invalid Facebook token attempted");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating Facebook token");
+                throw new UnauthorizedAccessException("Error processing Facebook authentication");
+            }
         }
 
         private (string email, string name, string providerKey) ExtractTwitterUserInfo(string accessToken)
@@ -550,16 +578,11 @@ namespace Camply.Infrastructure.Services
 
         private async Task<string> GenerateUniqueUsername(string baseName)
         {
-            // Remove special characters and spaces
             string username = baseName.Replace(" ", "").Replace(".", "").Replace("-", "");
-
-            // Check if username is already taken
             if (!await _userRepository.ExistsAsync(u => u.Username == username))
             {
                 return username;
             }
-
-            // Add random suffix
             return $"{username}_{DateTime.Now.Ticks.ToString().Substring(9)}";
         }
 
