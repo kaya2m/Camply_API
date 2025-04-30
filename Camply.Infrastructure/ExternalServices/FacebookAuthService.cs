@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Camply.Application.Auth.Models;
+using System.Text.Json.Serialization;
 
 namespace Camply.Infrastructure.ExternalServices
 {
@@ -75,30 +76,60 @@ namespace Camply.Infrastructure.ExternalServices
 
     public class FacebookAccessTokenResponse
     {
+        [JsonPropertyName("access_token")]
         public string AccessToken { get; set; }
+
+        [JsonPropertyName("token_type")]
         public string TokenType { get; set; }
     }
 
     public class FacebookUserAccessTokenValidation
     {
+        [JsonPropertyName("data")]
         public FacebookTokenData Data { get; set; }
     }
-
     public class FacebookTokenData
     {
+        [JsonPropertyName("app_id")]
         public string AppId { get; set; }
+
+        [JsonPropertyName("type")]
         public string Type { get; set; }
+
+        [JsonPropertyName("application")]
         public string Application { get; set; }
+
+        [JsonPropertyName("data_access_expires_at")]
         public long DataAccessExpiresAt { get; set; }
+
+        [JsonPropertyName("expires_at")]
         public long ExpiresAt { get; set; }
+
+        [JsonPropertyName("is_valid")]
         public bool IsValid { get; set; }
+
+        [JsonPropertyName("metadata")]
+        public FacebookTokenMetadata Metadata { get; set; }
+
+        [JsonPropertyName("scopes")]
+        public string[] Scopes { get; set; }
+
+        [JsonPropertyName("user_id")]
         public string UserId { get; set; }
     }
 
+    public class FacebookTokenMetadata
+    {
+        [JsonPropertyName("auth_type")]
+        public string AuthType { get; set; }
+    }
     public class FacebookUserInfoResponse
     {
+        [JsonPropertyName("id")]
         public string Id { get; set; }
+        [JsonPropertyName("name")]
         public string Name { get; set; }
+        [JsonPropertyName("email")]
         public string Email { get; set; }
     }
 }

@@ -266,7 +266,6 @@ namespace Camply.Infrastructure.Services
                         };
                 }
 
-                // Check if user with this social login exists
                 var socialLogin = await _socialLoginRepository.SingleOrDefaultAsync(
                     sl => sl.Provider == request.Provider && sl.ProviderKey == providerKey);
 
@@ -292,7 +291,6 @@ namespace Camply.Infrastructure.Services
 
                     if (user == null)
                     {
-                        // Create new user
                         user = new User
                         {
                             Id = Guid.NewGuid(),
@@ -305,7 +303,6 @@ namespace Camply.Infrastructure.Services
                         await _userRepository.AddAsync(user);
                         await _userRepository.SaveChangesAsync();
 
-                        // Assign default role (User)
                         var userRole = await _roleRepository.SingleOrDefaultAsync(r => r.Name == "User");
                         if (userRole != null)
                         {
