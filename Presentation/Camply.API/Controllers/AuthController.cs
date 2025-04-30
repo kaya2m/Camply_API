@@ -77,91 +77,6 @@ namespace Camply.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred during login" });
             }
         }
-
-        [HttpPost("google")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<AuthResponse>> GoogleLogin([FromBody] GoogleLoginRequest request)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(request.IdToken))
-                {
-                    return BadRequest(new { message = "ID token is required" });
-                }
-
-                var socialLoginRequest = new SocialLoginRequest
-                {
-                    Provider = "google",
-                    IdToken = request.IdToken,
-                    AccessToken = request.AccessToken
-                };
-
-                var result = await _authService.SocialLoginAsync(socialLoginRequest);
-
-                if (!result.Success)
-                {
-                    return Unauthorized(new { message = result.Message });
-                }
-
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in Google login");
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    new { message = "An error occurred during authentication" });
-            }
-        }
-        /// <summary>
-        /// Authenticates a user via Facebook login
-        /// </summary>
-        /// <param name="request">Facebook login details including access token</param>
-        /// <returns>Authentication result with JWT token</returns>
-        [HttpPost("facebook")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<AuthResponse>> FacebookLogin([FromBody] FacebookLoginRequest request)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(request.AccessToken))
-                {
-                    return BadRequest(new { message = "Access token is required" });
-                }
-
-                var socialLoginRequest = new SocialLoginRequest
-                {
-                    Provider = "facebook",
-                    AccessToken = request.AccessToken
-                };
-
-                var result = await _authService.SocialLoginAsync(socialLoginRequest);
-
-                if (!result.Success)
-                {
-                    return Unauthorized(new { message = result.Message });
-                }
-
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in Facebook login");
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    new { message = "An error occurred during authentication" });
-            }
-        }
         /// <summary>
         /// Authenticates a user via social login
         /// </summary>
@@ -176,7 +91,6 @@ namespace Camply.API.Controllers
         {
             try
             {
-                // Set provider from route
                 request.Provider = provider;
                 
                 var result = await _authService.SocialLoginAsync(request);
