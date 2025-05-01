@@ -261,7 +261,6 @@ namespace Camply.API.Controllers
         {
             try
             {
-                // Validate user exists
                 try
                 {
                     await _userService.GetUserProfileAsync(id);
