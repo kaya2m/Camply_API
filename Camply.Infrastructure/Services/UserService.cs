@@ -9,6 +9,8 @@ using Camply.Domain.Auth;
 using Camply.Domain.Repositories;
 using Camply.Domain;
 using Microsoft.Extensions.Logging;
+using Camply.Application.Common.Interfaces;
+using Camply.Domain.Enums;
 
 namespace Camply.Infrastructure.Services
 {
@@ -21,7 +23,8 @@ namespace Camply.Infrastructure.Services
         private readonly IRepository<Role> _roleRepository;
         private readonly IRepository<UserRole> _userRoleRepository;
         private readonly ILogger<UserService> _logger;
-
+        private readonly IEmailService _emailService;
+        private readonly IUrlBuilderService _urlBuilder;
         public UserService(
             IRepository<User> userRepository,
             IRepository<Post> postRepository,
@@ -29,7 +32,9 @@ namespace Camply.Infrastructure.Services
             IRepository<Follow> followRepository,
             IRepository<Role> roleRepository,
             IRepository<UserRole> userRoleRepository,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            IEmailService emailService,
+            IUrlBuilderService urlBuilder)
         {
             _userRepository = userRepository;
             _postRepository = postRepository;
@@ -38,6 +43,8 @@ namespace Camply.Infrastructure.Services
             _roleRepository = roleRepository;
             _userRoleRepository = userRoleRepository;
             _logger = logger;
+            _emailService = emailService;
+            _urlBuilder = urlBuilder;
         }
 
         public async Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null)
@@ -88,7 +95,6 @@ namespace Camply.Infrastructure.Services
                     throw new KeyNotFoundException($"User with ID {userId} not found");
                 }
 
-                // Check if username is changed and not already taken
                 if (!string.IsNullOrEmpty(request.Username) && user.Username != request.Username)
                 {
                     var existingUser = await _userRepository.SingleOrDefaultAsync(u => u.Username == request.Username);
@@ -134,13 +140,11 @@ namespace Camply.Infrastructure.Services
                     throw new KeyNotFoundException($"User with ID {userId} not found");
                 }
 
-                // Verify current password
                 if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
                 {
                     throw new UnauthorizedAccessException("Current password is incorrect");
                 }
 
-                // Update password
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
                 user.LastModifiedAt = DateTime.UtcNow;
 
@@ -232,23 +236,18 @@ namespace Camply.Infrastructure.Services
         {
             try
             {
-                // Get all followers for this user
                 var followersQuery = await _followRepository.FindAsync(f => f.FollowedId == userId);
                 var followers = followersQuery.ToList();
 
-                // Get total count
                 var totalCount = followers.Count;
 
-                // Apply pagination
                 var paginatedFollowers = followers
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                // Get follower user IDs
                 var followerIds = paginatedFollowers.Select(f => f.FollowerId).ToList();
 
-                // Get follower users
                 var followerUsers = new List<User>();
                 foreach (var id in followerIds)
                 {
@@ -259,7 +258,6 @@ namespace Camply.Infrastructure.Services
                     }
                 }
 
-                // Check if current user follows these users
                 var currentUserFollowing = currentUserId.HasValue
                     ? (await _followRepository.FindAsync(f => f.FollowerId == currentUserId.Value)).ToList()
                     : new List<Follow>();
@@ -297,23 +295,18 @@ namespace Camply.Infrastructure.Services
         {
             try
             {
-                // Get all users this user follows
                 var followingQuery = await _followRepository.FindAsync(f => f.FollowerId == userId);
                 var following = followingQuery.ToList();
 
-                // Get total count
                 var totalCount = following.Count;
 
-                // Apply pagination
                 var paginatedFollowing = following
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                // Get following user IDs
                 var followingIds = paginatedFollowing.Select(f => f.FollowedId).ToList();
 
-                // Get following users
                 var followingUsers = new List<User>();
                 foreach (var id in followingIds)
                 {
@@ -324,12 +317,10 @@ namespace Camply.Infrastructure.Services
                     }
                 }
 
-                // Check if current user follows these users
                 var currentUserFollowing = currentUserId.HasValue
                     ? (await _followRepository.FindAsync(f => f.FollowerId == currentUserId.Value)).ToList()
                     : new List<Follow>();
 
-                // Map to response model
                 var followingResponses = followingUsers.Select(u => new UserSummaryResponse
                 {
                     Id = u.Id,
@@ -339,7 +330,6 @@ namespace Camply.Infrastructure.Services
                         currentUserFollowing.Any(f => f.FollowedId == u.Id)
                 }).ToList();
 
-                // Create paged list
                 var pagedList = new PagedList<UserSummaryResponse>
                 {
                     Items = followingResponses,
@@ -357,7 +347,115 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+        public async Task<bool> ForgotPassword(string email, ClientType clientType = ClientType.Mobile)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email))
+                {
+                    throw new ArgumentException("Email cannot be empty");
+                }
 
+                User user = await _userRepository.SingleOrDefaultAsync(u => u.Email == email);
+
+                if (user == null)
+                {
+                    _logger.LogInformation($"Password reset requested for non-existent email: {email}");
+                    return true;
+                }
+
+                string resetToken = Guid.NewGuid().ToString("N");
+                DateTime tokenExpiry = DateTime.UtcNow.AddHours(1);
+
+                user.PasswordResetToken = resetToken;
+                user.PasswordResetTokenExpiry = tokenExpiry;
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                string resetLink = _urlBuilder.GetPasswordResetUrl(resetToken, clientType);
+
+                var emailResult = await _emailService.SendPasswordResetEmailAsync(
+                    email,
+                    user.Username,
+                    resetToken,
+                    resetLink);
+
+
+                _logger.LogInformation($"Password reset token generated for user: {user.Id}");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error during password reset request for email: {email}");
+                throw;
+            }
+        }
+
+        public async Task<bool> ResetPassword(string token, string newPassword)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                {
+                    throw new ArgumentException("Token boş olamaz");
+                }
+
+                if (string.IsNullOrEmpty(newPassword))
+                {
+                    throw new ArgumentException("Yeni şifre boş olamaz");
+                }
+
+               
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.PasswordResetToken == token &&
+                    u.PasswordResetTokenExpiry > DateTime.UtcNow &&
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    throw new InvalidOperationException("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı");
+                }
+
+                if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
+                {
+                    throw new ArgumentException("Yeni şifre, eski şifre ile aynı olamaz");
+                }
+
+                string passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+                user.PasswordHash = passwordHash;
+                user.PasswordResetToken = null;  
+                user.PasswordResetTokenExpiry = null;
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                try
+                {
+                    await _emailService.SendPasswordChangedEmailAsync(user.Email, user.Username);
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogWarning(emailEx, $"Şifre değişikliği bilgilendirme email'i gönderilemedi. Kullanıcı ID: {user.Id}");
+                }
+
+                _logger.LogInformation($"Şifre başarıyla sıfırlandı. Kullanıcı ID: {user.Id}");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şifre sıfırlama işlemi sırasında hata oluştu");
+                throw;
+            }
+        }
+
+     
         #region Helper Methods
 
         private async Task<UserProfileResponse> BuildUserProfileResponseAsync(User user, Guid? currentUserId)
@@ -402,6 +500,7 @@ namespace Camply.Infrastructure.Services
             };
         }
 
+     
         #endregion
     }
 }

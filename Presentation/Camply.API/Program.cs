@@ -7,8 +7,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddApplicationServices()
+                .AddInfrastructureServices(builder.Configuration)
                 .AddJwtAuthentication(builder.Configuration)
                 .AddSwaggerConfiguration()
+                .AddRateLimit(builder.Configuration)
                 .AddCorsConfiguration(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 
@@ -31,15 +33,14 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseCors("AllowSpecificOrigins");
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
 });
-
 await app.UseDataInitializer();
 
 app.Run();

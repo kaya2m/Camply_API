@@ -1,18 +1,22 @@
 ﻿using Camply.Application.Auth.Interfaces;
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
+using Camply.Application.Common.Interfaces;
 using Camply.Application.Users.Interfaces;
 using Camply.Domain.Common;
 using Camply.Domain.Repositories;
 using Camply.Infrastructure.Data;
 using Camply.Infrastructure.Data.Repositories;
 using Camply.Infrastructure.ExternalServices;
+using Camply.Infrastructure.Options;
 using Camply.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace Camply.API.Configuration
 {
@@ -48,15 +52,29 @@ namespace Camply.API.Configuration
             // Auth services
             services.AddScoped<TokenService>();
             services.AddScoped<IAuthService, AuthService>();
-            services.AddScoped<GoogleAuthService>();
-            services.AddScoped<FacebookAuthService>();
+            
 
             // User services
             services.AddScoped<IUserService, UserService>();
 
             return services;
         }
+        public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+        {
+            // Auth services
+            services.AddScoped<GoogleAuthService>();
+            services.AddScoped<FacebookAuthService>();
 
+            //Email
+            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+            services.AddScoped<IEmailService, EmailService>();
+
+            //URL settings
+            services.Configure<ApplicationUrlSettings>(configuration.GetSection("ApplicationUrls"));
+            services.AddScoped<IUrlBuilderService, UrlBuilderService>();
+
+            return services;
+        }
         /// <summary>
         /// JWT Authentication yapılandırması
         /// </summary>
@@ -74,7 +92,7 @@ namespace Camply.API.Configuration
             })
             .AddJwtBearer(x =>
             {
-                x.RequireHttpsMetadata = false; // Production'da true yapılmalı
+                x.RequireHttpsMetadata = false;
                 x.SaveToken = true;
                 x.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -163,6 +181,55 @@ namespace Camply.API.Configuration
                         .AllowAnyHeader()
                         .AllowCredentials();
                 });
+            });
+
+            return services;
+        }
+
+        public static IServiceCollection AddRateLimit(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddRateLimiter(options =>
+            {
+                options.AddFixedWindowLimiter("fixed", options =>
+                {
+                    options.PermitLimit = 100;
+                    options.Window = TimeSpan.FromSeconds(30);
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    options.QueueLimit = 0;
+                });
+
+                options.AddFixedWindowLimiter("forgot-password", options =>
+                {
+                    options.PermitLimit = 5; 
+                    options.Window = TimeSpan.FromMinutes(5);
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    options.QueueLimit = 0;
+                });
+
+                options.AddTokenBucketLimiter("ip", options =>
+                {
+                    options.TokenLimit = 20;
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    options.QueueLimit = 0;           
+                    options.ReplenishmentPeriod = TimeSpan.FromSeconds(10); 
+                    options.TokensPerPeriod = 4;      
+                    options.AutoReplenishment = true; 
+                });
+
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.OnRejected = async (context, token) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    context.HttpContext.Response.ContentType = "application/json";
+
+                    var errorResponse = new
+                    {
+                        error = "Rate limit exceeded. Too many requests.",
+                    };
+
+                    await context.HttpContext.Response.WriteAsJsonAsync(errorResponse, token);
+                };
             });
 
             return services;

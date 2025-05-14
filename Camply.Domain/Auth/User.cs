@@ -70,6 +70,15 @@ namespace Camply.Domain.Auth
         /// </summary>
         public string NotificationPreferences { get; set; }
 
+        /// <summary>
+        /// Şifre sıfırlama token'ı
+        /// </summary>
+        public string PasswordResetToken { get; set; }
+
+        /// <summary>
+        /// Şifre sıfırlama token'ının son kullanma tarihi
+        /// </summary>
+        public DateTime? PasswordResetTokenExpiry { get; set; }
         // Navigation properties
 
         /// <summary>

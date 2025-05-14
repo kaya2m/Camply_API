@@ -1,4 +1,5 @@
-﻿using Camply.Application.Users.DTOs;
+﻿using Camply.Application.Common.Interfaces;
+using Camply.Application.Users.DTOs;
 using Camply.Application.Users.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -313,5 +314,117 @@ namespace Camply.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred while retrieving followed users" });
             }
         }
+
+        /// <summary>
+        /// İstemci türünü belirlemek için yardımcı metod
+        /// </summary>
+        private ClientType DetermineClientType(HttpRequest request)
+        {
+            // X-Client-Type header'ından belirleme
+            if (request.Headers.TryGetValue("X-Client-Type", out var clientTypeValue))
+            {
+                if (clientTypeValue == "mobile")
+                    return ClientType.Mobile;
+                else if (clientTypeValue == "web")
+                    return ClientType.Web;
+            }
+
+            // User-Agent'dan belirleme
+            var userAgent = request.Headers["User-Agent"].ToString().ToLower();
+            if (userAgent.Contains("android") || userAgent.Contains("iphone") || userAgent.Contains("ipad"))
+                return ClientType.Mobile;
+
+            return ClientType.Web;
+        }
+
+        /// <summary>
+        /// Şifre sıfırlama isteği gönderir
+        /// </summary>
+        /// <param name="request">Şifre sıfırlama isteği bilgileri</param>
+        /// <returns>İşlem sonucu</returns>
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.Email))
+                {
+                    return BadRequest(new { message = "Email adresi gereklidir" });
+                }
+
+                // İstemci türünü belirle (mobil, web vb.)
+                var clientType = DetermineClientType(Request);
+
+                var result = await _userService.ForgotPassword(request.Email, clientType);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Şifre sıfırlama talimatları, kayıtlı email adresinize gönderildi."
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şifre sıfırlama isteği sırasında hata oluştu");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "Şifre sıfırlama isteği işlenirken bir hata oluştu" });
+            }
+        }
+
+        /// <summary>
+        /// Token ile şifre sıfırlama işlemini gerçekleştirir
+        /// </summary>
+        /// <param name="request">Şifre sıfırlama bilgileri</param>
+        /// <returns>İşlem sonucu</returns>
+        [HttpPost("reset-password")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.Token))
+                {
+                    return BadRequest(new { message = "Token gereklidir" });
+                }
+
+                if (string.IsNullOrEmpty(request.NewPassword))
+                {
+                    return BadRequest(new { message = "Yeni şifre gereklidir" });
+                }
+
+                var result = await _userService.ResetPassword(request.Token, request.NewPassword);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Şifreniz başarıyla sıfırlandı. Yeni şifrenizle giriş yapabilirsiniz."
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şifre sıfırlama işlemi sırasında hata oluştu");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "Şifre sıfırlama işlemi sırasında bir hata oluştu" });
+            }
+        }
+
+  
     }
 }
