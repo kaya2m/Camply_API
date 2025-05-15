@@ -318,24 +318,6 @@ namespace Camply.API.Controllers
         /// <summary>
         /// İstemci türünü belirlemek için yardımcı metod
         /// </summary>
-        private ClientType DetermineClientType(HttpRequest request)
-        {
-            // X-Client-Type header'ından belirleme
-            if (request.Headers.TryGetValue("X-Client-Type", out var clientTypeValue))
-            {
-                if (clientTypeValue == "mobile")
-                    return ClientType.Mobile;
-                else if (clientTypeValue == "web")
-                    return ClientType.Web;
-            }
-
-            // User-Agent'dan belirleme
-            var userAgent = request.Headers["User-Agent"].ToString().ToLower();
-            if (userAgent.Contains("android") || userAgent.Contains("iphone") || userAgent.Contains("ipad"))
-                return ClientType.Mobile;
-
-            return ClientType.Web;
-        }
 
         /// <summary>
         /// Şifre sıfırlama isteği gönderir
@@ -356,10 +338,8 @@ namespace Camply.API.Controllers
                     return BadRequest(new { message = "Email adresi gereklidir" });
                 }
 
-                // İstemci türünü belirle (mobil, web vb.)
-                var clientType = DetermineClientType(Request);
 
-                var result = await _userService.ForgotPassword(request.Email, clientType);
+                var result = await _userService.ForgotPassword(request.Email);
 
                 return Ok(new
                 {
@@ -378,6 +358,40 @@ namespace Camply.API.Controllers
                     new { message = "Şifre sıfırlama isteği işlenirken bir hata oluştu" });
             }
         }
+        /// <summary>
+        /// Şifre sıfırlama kodunu doğrular
+        /// </summary>
+        [HttpPost("verify-reset-code")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Code))
+                {
+                    return BadRequest(new { message = "Email ve kod alanları gereklidir" });
+                }
+
+                var isVerified = await _userService.VerifyResetCode(request.Email, request.Code);
+
+                if (!isVerified)
+                {
+                    return BadRequest(new { message = "Geçersiz veya süresi dolmuş kod" });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Kod başarıyla doğrulandı"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Kod doğrulama sırasında hata oluştu");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "Kod doğrulama sırasında bir hata oluştu" });
+            }
+        }
 
         /// <summary>
         /// Token ile şifre sıfırlama işlemini gerçekleştirir
@@ -391,9 +405,9 @@ namespace Camply.API.Controllers
         {
             try
             {
-                if (string.IsNullOrEmpty(request.Token))
+                if (string.IsNullOrEmpty(request.Email))
                 {
-                    return BadRequest(new { message = "Token gereklidir" });
+                    return BadRequest(new { message = "Email gereklidir" });
                 }
 
                 if (string.IsNullOrEmpty(request.NewPassword))
@@ -401,7 +415,7 @@ namespace Camply.API.Controllers
                     return BadRequest(new { message = "Yeni şifre gereklidir" });
                 }
 
-                var result = await _userService.ResetPassword(request.Token, request.NewPassword);
+                var result = await _userService.ResetPassword(request.Email, request.NewPassword);
 
                 return Ok(new
                 {

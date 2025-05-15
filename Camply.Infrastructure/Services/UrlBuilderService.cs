@@ -4,74 +4,88 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Camply.Infrastructure.Services
 {
-    public class UrlBuilderService : IUrlBuilderService
+    public class CodeBuilderService : ICodeBuilderService
     {
-        private readonly ApplicationUrlSettings _urlSettings;
+        private readonly CodeSettings _codeSettings;
+        private readonly Dictionary<string, CodeData> _activeCodes;
 
-        public UrlBuilderService(IOptions<ApplicationUrlSettings> urlSettings)
+        public CodeBuilderService(IOptions<CodeSettings> codeSettings)
         {
-            _urlSettings = urlSettings.Value;
+            _codeSettings = codeSettings.Value;
+            _activeCodes = new Dictionary<string, CodeData>();
         }
 
-        public string GetPasswordResetUrl(string token, ClientType clientType = ClientType.Mobile)
+        public string GenerateSixDigitCode()
         {
-            string url;
-
-            if (clientType == ClientType.Mobile)
+            using (var rng = RandomNumberGenerator.Create())
             {
-                url = $"{_urlSettings.MobileAppScheme}{_urlSettings.ResetPasswordPath}?token={token}";
-            }
-            else
-            {
-                url = $"{_urlSettings.WebClientBaseUrl.TrimEnd('/')}/{_urlSettings.ResetPasswordPath}?token={token}";
-            }
+                byte[] data = new byte[4];
+                rng.GetBytes(data);
+                int value = Math.Abs(BitConverter.ToInt32(data, 0));
 
-            return url;
-        }
+                string code = (value % 900000 + 100000).ToString();
 
-        public string GetEmailVerificationUrl(string token, ClientType clientType = ClientType.Mobile)
-        {
-            if (clientType == ClientType.Mobile)
-            {
-                return $"{_urlSettings.MobileAppScheme}{_urlSettings.EmailVerificationPath}?token={token}";
-            }
-            else
-            {
-                return $"{_urlSettings.WebClientBaseUrl.TrimEnd('/')}/{_urlSettings.EmailVerificationPath}?token={token}";
-            }
-        }
-
-        public string GetApiUrl(string path = "")
-        {
-            path = path?.TrimStart('/') ?? "";
-            return $"{_urlSettings.ApiBaseUrl.TrimEnd('/')}/{path}";
-        }
-
-        public string GetMobileDeepLink(string path, Dictionary<string, string> parameters = null)
-        {
-            StringBuilder urlBuilder = new StringBuilder($"{_urlSettings.MobileAppScheme}{path.TrimStart('/')}");
-
-            if (parameters != null && parameters.Count > 0)
-            {
-                urlBuilder.Append("?");
-                bool isFirst = true;
-
-                foreach (var param in parameters)
+                _activeCodes[code] = new CodeData
                 {
-                    if (!isFirst)
-                        urlBuilder.Append("&");
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(_codeSettings.CodeExpirationMinutes)
+                };
 
-                    urlBuilder.Append($"{Uri.EscapeDataString(param.Key)}={Uri.EscapeDataString(param.Value)}");
-                    isFirst = false;
-                }
+                return code;
+            }
+        }
+
+        public string VerifyCode(string code)
+        {
+            if (IsCodeValid(code))
+            {
+                _activeCodes.Remove(code); 
+                return "Code verified successfully";
             }
 
-            return urlBuilder.ToString();
+            return "Invalid or expired code";
+        }
+
+        public bool IsCodeValid(string code)
+        {
+            if (_activeCodes.TryGetValue(code, out CodeData codeData))
+            {
+                return DateTime.UtcNow < codeData.ExpiresAt;
+            }
+
+            return false;
+        }
+
+        public DateTime GetCodeExpirationTime(string code)
+        {
+            if (_activeCodes.TryGetValue(code, out CodeData codeData))
+            {
+                return codeData.ExpiresAt;
+            }
+
+            return DateTime.MinValue;
+        }
+
+        public string GetCodeForUser(string userId)
+        {
+            string code = GenerateSixDigitCode();
+            _activeCodes[code].UserId = userId;
+            return code;
+        }
+
+        private class CodeData
+        {
+            public DateTime CreatedAt { get; set; }
+            public DateTime ExpiresAt { get; set; }
+            public string UserId { get; set; }
+            public CodeType Type { get; set; }
         }
     }
 }
+

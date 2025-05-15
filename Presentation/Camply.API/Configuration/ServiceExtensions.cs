@@ -70,8 +70,8 @@ namespace Camply.API.Configuration
             services.AddScoped<IEmailService, EmailService>();
 
             //URL settings
-            services.Configure<ApplicationUrlSettings>(configuration.GetSection("ApplicationUrls"));
-            services.AddScoped<IUrlBuilderService, UrlBuilderService>();
+            services.Configure<CodeSettings>(configuration.GetSection("CodeSettings"));
+            services.AddScoped<ICodeBuilderService, CodeBuilderService>();
 
             return services;
         }

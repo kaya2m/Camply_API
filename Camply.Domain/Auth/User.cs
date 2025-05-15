@@ -73,13 +73,20 @@ namespace Camply.Domain.Auth
         /// <summary>
         /// Şifre sıfırlama token'ı
         /// </summary>
-        public string PasswordResetToken { get; set; }
+        public string PasswordResetCode { get; set; }
 
         /// <summary>
         /// Şifre sıfırlama token'ının son kullanma tarihi
         /// </summary>
-        public DateTime? PasswordResetTokenExpiry { get; set; }
-        // Navigation properties
+        public DateTime? PasswordResetCodeExpiry { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool IsPasswordResetCodeVerified { get; set; }  = false;
+        /// <summary>
+        /// 
+        /// </summary>
+        public DateTime? CodeVerifiedAt { get; set; }
 
         /// <summary>
         /// Kullanıcının sosyal gönderileri

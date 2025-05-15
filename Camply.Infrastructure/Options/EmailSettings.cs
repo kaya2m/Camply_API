@@ -16,9 +16,5 @@ namespace Camply.Infrastructure.Options
         public string AwsAccessKey { get; set; }
         public string AwsSecretKey { get; set; }
         public string AwsRegion { get; set; }
-
-        // URL settings for application
-        public string ResetPasswordUrl { get; set; }
-        public string ResetPasswordMobileUrl { get; set; }
     }
 }

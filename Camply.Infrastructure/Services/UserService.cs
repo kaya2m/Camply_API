@@ -1,16 +1,18 @@
-﻿using System;
+﻿using Camply.Application.Common.Interfaces;
+using Camply.Application.Users.DTOs;
+using Camply.Application.Users.Interfaces;
+using Camply.Domain;
+using Camply.Domain.Auth;
+using Camply.Domain.Enums;
+using Camply.Domain.Repositories;
+using Camply.Infrastructure.Options;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Camply.Application.Users.DTOs;
-using Camply.Application.Users.Interfaces;
-using Camply.Domain.Auth;
-using Camply.Domain.Repositories;
-using Camply.Domain;
-using Microsoft.Extensions.Logging;
-using Camply.Application.Common.Interfaces;
-using Camply.Domain.Enums;
 
 namespace Camply.Infrastructure.Services
 {
@@ -24,7 +26,8 @@ namespace Camply.Infrastructure.Services
         private readonly IRepository<UserRole> _userRoleRepository;
         private readonly ILogger<UserService> _logger;
         private readonly IEmailService _emailService;
-        private readonly IUrlBuilderService _urlBuilder;
+        private readonly CodeSettings _codeSettings;
+        private readonly ICodeBuilderService _codeBuilder;
         public UserService(
             IRepository<User> userRepository,
             IRepository<Post> postRepository,
@@ -34,7 +37,8 @@ namespace Camply.Infrastructure.Services
             IRepository<UserRole> userRoleRepository,
             ILogger<UserService> logger,
             IEmailService emailService,
-            IUrlBuilderService urlBuilder)
+            ICodeBuilderService codeBuilder,
+           IOptions<CodeSettings> codeSettings)
         {
             _userRepository = userRepository;
             _postRepository = postRepository;
@@ -44,7 +48,8 @@ namespace Camply.Infrastructure.Services
             _userRoleRepository = userRoleRepository;
             _logger = logger;
             _emailService = emailService;
-            _urlBuilder = urlBuilder;
+            _codeBuilder = codeBuilder;
+            _codeSettings = codeSettings.Value;
         }
 
         public async Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null)
@@ -176,7 +181,6 @@ namespace Camply.Infrastructure.Services
                     throw new KeyNotFoundException($"User to follow with ID {userToFollowId} not found");
                 }
 
-                // Check if already following
                 var existingFollow = await _followRepository.SingleOrDefaultAsync(
                     f => f.FollowerId == currentUserId && f.FollowedId == userToFollowId);
 
@@ -185,7 +189,6 @@ namespace Camply.Infrastructure.Services
                     return true;
                 }
 
-                // Create new follow
                 var follow = new Follow
                 {
                     Id = Guid.NewGuid(),
@@ -215,11 +218,9 @@ namespace Camply.Infrastructure.Services
 
                 if (follow == null)
                 {
-                    // Not following
                     return true;
                 }
 
-                // Remove follow
                 _followRepository.Remove(follow);
                 await _followRepository.SaveChangesAsync();
 
@@ -347,7 +348,7 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-        public async Task<bool> ForgotPassword(string email, ClientType clientType = ClientType.Mobile)
+        public async Task<bool> ForgotPassword(string email)
         {
             try
             {
@@ -357,34 +358,28 @@ namespace Camply.Infrastructure.Services
                 }
 
                 User user = await _userRepository.SingleOrDefaultAsync(u => u.Email == email);
-
                 if (user == null)
                 {
                     _logger.LogInformation($"Password reset requested for non-existent email: {email}");
-                    return true;
+                    return true; 
                 }
 
-                string resetToken = Guid.NewGuid().ToString("N");
-                DateTime tokenExpiry = DateTime.UtcNow.AddHours(1);
+                string resetCode = _codeBuilder.GenerateSixDigitCode();
 
-                user.PasswordResetToken = resetToken;
-                user.PasswordResetTokenExpiry = tokenExpiry;
+                user.PasswordResetCode = resetCode;
+                user.PasswordResetCodeExpiry = DateTime.UtcNow.AddMinutes(_codeSettings.CodeExpirationMinutes);
                 user.LastModifiedAt = DateTime.UtcNow;
 
                 _userRepository.Update(user);
                 await _userRepository.SaveChangesAsync();
 
-                string resetLink = _urlBuilder.GetPasswordResetUrl(resetToken, clientType);
-
                 var emailResult = await _emailService.SendPasswordResetEmailAsync(
                     email,
                     user.Username,
-                    resetToken,
-                    resetLink);
+                    resetCode
+                    ); 
 
-
-                _logger.LogInformation($"Password reset token generated for user: {user.Id}");
-
+                _logger.LogInformation($"Password reset code generated for user: {user.Id}");
                 return true;
             }
             catch (Exception ex)
@@ -393,43 +388,82 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-
-        public async Task<bool> ResetPassword(string token, string newPassword)
+        public async Task<bool> VerifyResetCode(string email, string code)
         {
             try
             {
-                if (string.IsNullOrEmpty(token))
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
                 {
-                    throw new ArgumentException("Token boş olamaz");
+                    return false;
                 }
 
-                if (string.IsNullOrEmpty(newPassword))
-                {
-                    throw new ArgumentException("Yeni şifre boş olamaz");
-                }
-
-               
                 var user = await _userRepository.SingleOrDefaultAsync(u =>
-                    u.PasswordResetToken == token &&
-                    u.PasswordResetTokenExpiry > DateTime.UtcNow &&
+                    u.Email == email &&
+                    u.PasswordResetCode == code &&
+                    u.PasswordResetCodeExpiry > DateTime.UtcNow &&
                     u.Status == UserStatus.Active &&
                     !u.IsDeleted);
 
                 if (user == null)
                 {
-                    throw new InvalidOperationException("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı");
+                    return false;
+                }
+
+                user.IsPasswordResetCodeVerified = true;
+                user.CodeVerifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error verifying reset code: Email={email}");
+                return false;
+            }
+        }
+
+        public async Task<bool> ResetPassword(string email, string newPassword)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email))
+                {
+                    throw new ArgumentException("Email cannot be empty");
+                }
+
+
+                if (string.IsNullOrEmpty(newPassword))
+                {
+                    throw new ArgumentException("New password cannot be empty");
+                }
+
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.Email == email &&
+                    u.PasswordResetCodeExpiry > DateTime.UtcNow &&
+                    u.IsPasswordResetCodeVerified == true &&
+                    u.CodeVerifiedAt > DateTime.UtcNow.AddMinutes(-15) && 
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    throw new InvalidOperationException("Invalid or expired password reset code");
                 }
 
                 if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
                 {
-                    throw new ArgumentException("Yeni şifre, eski şifre ile aynı olamaz");
+                    throw new ArgumentException("New password cannot be the same as the old password");
                 }
 
                 string passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
                 user.PasswordHash = passwordHash;
-                user.PasswordResetToken = null;  
-                user.PasswordResetTokenExpiry = null;
+                user.PasswordResetCode = null;
+                user.PasswordResetCodeExpiry = null;
+                user.IsPasswordResetCodeVerified = false;
+                user.CodeVerifiedAt = null;
                 user.LastModifiedAt = DateTime.UtcNow;
 
                 _userRepository.Update(user);
@@ -441,21 +475,19 @@ namespace Camply.Infrastructure.Services
                 }
                 catch (Exception emailEx)
                 {
-                    _logger.LogWarning(emailEx, $"Şifre değişikliği bilgilendirme email'i gönderilemedi. Kullanıcı ID: {user.Id}");
+                    _logger.LogWarning(emailEx, $"Failed to send password change notification email. User ID: {user.Id}");
                 }
 
-                _logger.LogInformation($"Şifre başarıyla sıfırlandı. Kullanıcı ID: {user.Id}");
+                _logger.LogInformation($"Password successfully reset. User ID: {user.Id}");
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Şifre sıfırlama işlemi sırasında hata oluştu");
+                _logger.LogError(ex, "Error during password reset");
                 throw;
             }
         }
-
-     
         #region Helper Methods
 
         private async Task<UserProfileResponse> BuildUserProfileResponseAsync(User user, Guid? currentUserId)
@@ -500,7 +532,7 @@ namespace Camply.Infrastructure.Services
             };
         }
 
-     
+
         #endregion
     }
 }

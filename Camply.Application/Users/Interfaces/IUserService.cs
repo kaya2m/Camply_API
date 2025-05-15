@@ -18,7 +18,8 @@ namespace Camply.Application.Users.Interfaces
         Task<bool> UnfollowUserAsync(Guid currentUserId, Guid userToUnfollowId);
         Task<PagedList<UserSummaryResponse>> GetFollowersAsync(Guid userId, int pageNumber, int pageSize, Guid? currentUserId = null);
         Task<PagedList<UserSummaryResponse>> GetFollowingAsync(Guid userId, int pageNumber, int pageSize, Guid? currentUserId = null);
-        Task<bool>ResetPassword(string token, string newPassword);
-        Task<bool> ForgotPassword(string email, ClientType clientType);
+        Task<bool> ForgotPassword(string email);
+        Task<bool> VerifyResetCode(string email, string code);
+        Task<bool>ResetPassword(string email, string newPassword);
     }
 }

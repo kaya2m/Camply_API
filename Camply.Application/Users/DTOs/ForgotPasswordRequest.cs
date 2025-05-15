@@ -25,7 +25,7 @@ namespace Camply.Application.Users.DTOs
         /// <summary>
         /// Şifre sıfırlama token'ı
         /// </summary>
-        public string Token { get; set; }
+        public string Email { get; set; }
 
         /// <summary>
         /// Kullanıcının belirlemek istediği yeni şifre

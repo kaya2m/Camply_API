@@ -12,7 +12,7 @@ namespace Camply.Application.Common.Interfaces
         /// <param name="token">Şifre sıfırlama token'ı</param>
         /// <param name="resetLink">Şifre sıfırlama linki</param>
         /// <returns>İşlem başarılı ise true</returns>
-        Task<bool> SendPasswordResetEmailAsync(string email, string username, string token, string resetLink);
+        Task<bool> SendPasswordResetEmailAsync(string email, string username, string code);
 
         /// <summary>
         /// Şifre değişikliği bildirimi maili gönderir
