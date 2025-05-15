@@ -30,123 +30,583 @@ namespace Camply.Infrastructure.ExternalServices
 
         public async Task<bool> SendPasswordResetEmailAsync(string email, string username, string token, string resetLink)
         {
-            string subject = "Şifre Sıfırlama - Camply";
+            string subject = "Şifre Sıfırlama";
 
             string body = $@"
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                    .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
-                    .content {{ padding: 20px; border: 1px solid #ddd; }}
-                    .button {{ display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; 
-                             text-decoration: none; border-radius: 5px; margin-top: 20px; }}
-                    .footer {{ margin-top: 20px; font-size: 12px; color: #777; text-align: center; }}
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>Camply - Şifre Sıfırlama</h2>
-                    </div>
-                    <div class='content'>
-                        <p>Merhaba <strong>{username}</strong>,</p>
-                        <p>Hesabınız için bir şifre sıfırlama talebinde bulundunuz.</p>
-                        <p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
-                        <a href='{resetLink}' class='button'>Şifremi Sıfırla</a>
-                        <p>Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-                        <p>Bu link 1 saat süreyle geçerlidir.</p>
-                        <p>Saygılarımızla,<br>Camply Ekibi</p>
-                    </div>
-                    <div class='footer'>
-                        <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
-                    </div>
+    <!DOCTYPE html>
+    <html lang='tr'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>Şifre Sıfırlama</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+            
+            body {{
+                font-family: 'Poppins', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f9f9f9;
+                margin: 0;
+                padding: 0;
+            }}
+            
+            .email-wrapper {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            }}
+            
+            .email-header {{
+                background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+                padding: 25px 0;
+                text-align: center;
+            }}
+            
+            .logo {{
+                margin-bottom: 10px;
+            }}
+            
+            .logo img {{
+                max-height: 40px;
+            }}
+            
+            .header-title {{
+                color: white;
+                font-size: 22px;
+                font-weight: 600;
+                margin: 0;
+            }}
+            
+            .email-body {{
+                padding: 40px 30px;
+                background-color: #ffffff;
+            }}
+            
+            .greeting {{
+                font-size: 18px;
+                margin-bottom: 20px;
+                color: #333;
+            }}
+            
+            .message {{
+                font-size: 16px;
+                color: #555;
+                margin-bottom: 25px;
+            }}
+            
+            .button-container {{
+                text-align: center;
+                margin: 35px 0;
+            }}
+            
+            .button {{
+                display: inline-block;
+                background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+                color: white !important;
+                font-weight: 500;
+                font-size: 16px;
+                text-decoration: none;
+                padding: 12px 35px;
+                border-radius: 50px;
+                box-shadow: 0 4px 8px rgba(46, 125, 50, 0.2);
+                transition: all 0.3s ease;
+            }}
+            
+            .button:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(46, 125, 50, 0.3);
+            }}
+            
+            .note {{
+                font-size: 14px;
+                color: #777;
+                background-color: #f8f9fa;
+                border-left: 4px solid #e9ecef;
+                padding: 15px;
+                margin: 25px 0;
+                border-radius: 0 4px 4px 0;
+            }}
+            
+            .signature {{
+                margin-top: 30px;
+                font-size: 15px;
+                color: #555;
+            }}
+            
+            .team-name {{
+                font-weight: 600;
+                color: #43a047;
+            }}
+            
+            .email-footer {{
+                text-align: center;
+                padding: 20px 30px;
+                background-color: #f8f9fa;
+                color: #999;
+                font-size: 13px;
+                border-top: 1px solid #eee;
+            }}
+            
+            @media screen and (max-width: 550px) {{
+                .email-body {{
+                    padding: 30px 20px;
+                }}
+                
+                .header-title {{
+                    font-size: 20px;
+                }}
+                
+                .greeting {{
+                    font-size: 17px;
+                }}
+                
+                .message {{
+                    font-size: 15px;
+                }}
+                
+                .button {{
+                    padding: 10px 25px;
+                    font-size: 15px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class='email-wrapper'>
+            <div class='email-header'>
+                <div class='logo'>
+                    <!-- Logo URL'nizi ekleyin veya sadece metin kullanın -->
+                    <!-- <img src='LOGO_URL' alt='Camply'> -->
                 </div>
-            </body>
-            </html>
-            ";
+                <h1 class='header-title'>Şifre Sıfırlama</h1>
+            </div>
+            
+            <div class='email-body'>
+                <p class='greeting'>Merhaba <strong>{username}</strong>,</p>
+                
+                <p class='message'>Hesabınız için bir şifre sıfırlama talebinde bulundunuz. Aşağıdaki butona tıklayarak güvenli bir şekilde şifrenizi yenileyebilirsiniz.</p>
+                
+                <div class='button-container'>
+                    <a href='{resetLink}' class='button'>Şifremi Sıfırla</a>
+                </div>
+                
+                <div class='note'>
+                    <p>Bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
+                    <p style='margin-bottom: 0;'>Bu şifre sıfırlama bağlantısı 1 saat süreyle geçerlidir.</p>
+                </div>
+                
+                <div class='signature'>
+                    Saygılarımızla,<br>
+                    <span class='team-name'>Camply Ekibi</span>
+                </div>
+            </div>
+            
+            <div class='email-footer'>
+                <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
+                <p style='margin-bottom: 0;'>© 2025 Camply. Tüm hakları saklıdır.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    ";
 
             return await SendEmailAsync(email, subject, body);
         }
 
         public async Task<bool> SendPasswordChangedEmailAsync(string email, string username)
         {
-            string subject = "Şifre Değişikliği Bildirimi - Camply";
+            string subject = "Şifre Değişikliği Bildirimi";
 
             string body = $@"
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                    .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
-                    .content {{ padding: 20px; border: 1px solid #ddd; }}
-                    .footer {{ margin-top: 20px; font-size: 12px; color: #777; text-align: center; }}
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>Camply - Şifre Değişikliği</h2>
-                    </div>
-                    <div class='content'>
-                        <p>Merhaba <strong>{username}</strong>,</p>
-                        <p>Hesabınızın şifresi başarıyla değiştirildi.</p>
-                        <p>Eğer bu değişikliği siz yapmadıysanız, lütfen derhal bizimle iletişime geçin.</p>
-                        <p>Saygılarımızla,<br>Camply Ekibi</p>
-                    </div>
-                    <div class='footer'>
-                        <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
-                    </div>
+    <!DOCTYPE html>
+    <html lang='tr'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>Şifre Değişikliği Bildirimi</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+            
+            body {{
+                font-family: 'Poppins', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f9f9f9;
+                margin: 0;
+                padding: 0;
+            }}
+            
+            .email-wrapper {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            }}
+            
+            .email-header {{
+                background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+                padding: 25px 0;
+                text-align: center;
+            }}
+            
+            .logo {{
+                margin-bottom: 10px;
+            }}
+            
+            .logo img {{
+                max-height: 40px;
+            }}
+            
+            .header-title {{
+                color: white;
+                font-size: 22px;
+                font-weight: 600;
+                margin: 0;
+            }}
+            
+            .email-body {{
+                padding: 40px 30px;
+                background-color: #ffffff;
+            }}
+            
+            .greeting {{
+                font-size: 18px;
+                margin-bottom: 20px;
+                color: #333;
+            }}
+            
+            .message {{
+                font-size: 16px;
+                color: #555;
+                margin-bottom: 25px;
+            }}
+            
+            .alert-box {{
+                background-color: #e8f5e9;
+                border-left: 4px solid #43a047;
+                padding: 15px;
+                margin: 25px 0;
+                border-radius: 0 4px 4px 0;
+                color: #2e7d32;
+            }}
+            
+            .alert-box p {{
+                margin: 0;
+                font-weight: 500;
+            }}
+            
+            .signature {{
+                margin-top: 30px;
+                font-size: 15px;
+                color: #555;
+            }}
+            
+            .team-name {{
+                font-weight: 600;
+                color: #43a047;
+            }}
+            
+            .email-footer {{
+                text-align: center;
+                padding: 20px 30px;
+                background-color: #f8f9fa;
+                color: #999;
+                font-size: 13px;
+                border-top: 1px solid #eee;
+            }}
+            
+            .warning {{
+                background-color: #ffeeed;
+                border-left: 4px solid #f44336;
+                padding: 15px;
+                margin: 25px 0;
+                border-radius: 0 4px 4px 0;
+                color: #d32f2f;
+                font-weight: 500;
+            }}
+            
+            @media screen and (max-width: 550px) {{
+                .email-body {{
+                    padding: 30px 20px;
+                }}
+                
+                .header-title {{
+                    font-size: 20px;
+                }}
+                
+                .greeting {{
+                    font-size: 17px;
+                }}
+                
+                .message {{
+                    font-size: 15px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class='email-wrapper'>
+            <div class='email-header'>
+                <div class='logo'>
+                    <!-- Logo URL'nizi ekleyin veya sadece metin kullanın -->
+                    <!-- <img src='LOGO_URL' alt='Camply'> -->
                 </div>
-            </body>
-            </html>
-            ";
+                <h1 class='header-title'>Şifre Değişikliği Bildirimi</h1>
+            </div>
+            
+            <div class='email-body'>
+                <p class='greeting'>Merhaba <strong>{username}</strong>,</p>
+                
+                <p class='message'>Hesabınızın şifresi az önce başarıyla değiştirildi. Güvenlik için bu değişikliği size bildirmek istedik.</p>
+                
+                <div class='alert-box'>
+                    <p>Şifreniz başarıyla güncellendi.</p>
+                </div>
+                
+                <div class='warning'>
+                    <p>Eğer bu değişikliği siz yapmadıysanız, lütfen derhal hesabınızı güvence altına almak için bizimle iletişime geçin.</p>
+                </div>
+                
+                <div class='signature'>
+                    Saygılarımızla,<br>
+                    <span class='team-name'>Camply Ekibi</span>
+                </div>
+            </div>
+            
+            <div class='email-footer'>
+                <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
+                <p style='margin-bottom: 0;'>© 2025 Camply. Tüm hakları saklıdır.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    ";
 
             return await SendEmailAsync(email, subject, body);
         }
 
         public async Task<bool> SendEmailVerificationAsync(string email, string username, string token, string verificationLink)
         {
-            string subject = "E-posta Doğrulama - Camply";
+            string subject = "E-posta Doğrulama";
 
             string body = $@"
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                    .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
-                    .content {{ padding: 20px; border: 1px solid #ddd; }}
-                    .button {{ display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; 
-                             text-decoration: none; border-radius: 5px; margin-top: 20px; }}
-                    .footer {{ margin-top: 20px; font-size: 12px; color: #777; text-align: center; }}
-                </style>    
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>Camply - E-posta Doğrulama</h2>
-                    </div>
-                    <div class='content'>
-                        <p>Merhaba <strong>{username}</strong>,</p>
-                        <p>Camply hesabınızı oluşturduğunuz için teşekkür ederiz.</p>
-                        <p>E-posta adresinizi doğrulamak için aşağıdaki butona tıklayın:</p>
-                        <a href='{verificationLink}' class='button'>E-postamı Doğrula</a>
-                        <p>Saygılarımızla,<br>Camply Ekibi</p>
-                    </div>
-                    <div class='footer'>
-                        <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
-                    </div>
+    <!DOCTYPE html>
+    <html lang='tr'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>E-posta Doğrulama</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+            
+            body {{
+                font-family: 'Poppins', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f9f9f9;
+                margin: 0;
+                padding: 0;
+            }}
+            
+            .email-wrapper {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            }}
+            
+            .email-header {{
+                background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+                padding: 25px 0;
+                text-align: center;
+            }}
+            
+            .logo {{
+                margin-bottom: 10px;
+            }}
+            
+            .logo img {{
+                max-height: 40px;
+            }}
+            
+            .header-title {{
+                color: white;
+                font-size: 22px;
+                font-weight: 600;
+                margin: 0;
+            }}
+            
+            .email-body {{
+                padding: 40px 30px;
+                background-color: #ffffff;
+            }}
+            
+            .greeting {{
+                font-size: 18px;
+                margin-bottom: 20px;
+                color: #333;
+            }}
+            
+            .message {{
+                font-size: 16px;
+                color: #555;
+                margin-bottom: 25px;
+            }}
+            
+            .welcome-message {{
+                font-size: 17px;
+                color: #43a047;
+                font-weight: 500;
+                margin-bottom: 20px;
+            }}
+            
+            .button-container {{
+                text-align: center;
+                margin: 35px 0;
+            }}
+            
+            .button {{
+                display: inline-block;
+                background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+                color: white !important;
+                font-weight: 500;
+                font-size: 16px;
+                text-decoration: none;
+                padding: 12px 35px;
+                border-radius: 50px;
+                box-shadow: 0 4px 8px rgba(46, 125, 50, 0.2);
+                transition: all 0.3s ease;
+            }}
+            
+            .button:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(46, 125, 50, 0.3);
+            }}
+            
+            .benefits {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 30px 0;
+            }}
+            
+            .benefits h3 {{
+                color: #43a047;
+                font-size: 16px;
+                margin-top: 0;
+                margin-bottom: 15px;
+            }}
+            
+            .benefits ul {{
+                margin: 0;
+                padding-left: 20px;
+            }}
+            
+            .benefits li {{
+                margin-bottom: 8px;
+                color: #555;
+            }}
+            
+            .signature {{
+                margin-top: 30px;
+                font-size: 15px;
+                color: #555;
+            }}
+            
+            .team-name {{
+                font-weight: 600;
+                color: #43a047;
+            }}
+            
+            .email-footer {{
+                text-align: center;
+                padding: 20px 30px;
+                background-color: #f8f9fa;
+                color: #999;
+                font-size: 13px;
+                border-top: 1px solid #eee;
+            }}
+            
+            @media screen and (max-width: 550px) {{
+                .email-body {{
+                    padding: 30px 20px;
+                }}
+                
+                .header-title {{
+                    font-size: 20px;
+                }}
+                
+                .greeting {{
+                    font-size: 17px;
+                }}
+                
+                .message {{
+                    font-size: 15px;
+                }}
+                
+                .button {{
+                    padding: 10px 25px;
+                    font-size: 15px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class='email-wrapper'>
+            <div class='email-header'>
+                <div class='logo'>
+                    <!-- Logo URL'nizi ekleyin veya sadece metin kullanın -->
+                    <!-- <img src='LOGO_URL' alt='Camply'> -->
                 </div>
-            </body>
-            </html>
-            ";
+                <h1 class='header-title'>E-posta Doğrulama</h1>
+            </div>
+            
+            <div class='email-body'>
+                <p class='greeting'>Merhaba <strong>{username}</strong>,</p>
+                
+                <p class='welcome-message'>Camply ailesine hoş geldiniz!</p>
+                
+                <p class='message'>Hesabınızı aktifleştirmek ve tüm özelliklere erişim sağlamak için lütfen e-posta adresinizi doğrulayın.</p>
+                
+                <div class='button-container'>
+                    <a href='{verificationLink}' class='button'>E-Postamı Doğrula</a>
+                </div>
+                
+                <div class='benefits'>
+                    <h3>Camply'de Sizi Neler Bekliyor:</h3>
+                    <ul>
+                        <li>Doğa tutkunlarıyla bağlantı kurun</li>
+                        <li>Favori kamp yerlerinizi keşfedin ve paylaşın</li>
+                        <li>Deneyimli kampçılardan ipuçları alın</li>
+                        <li>Kendi macera günlüğünüzü oluşturun</li>
+                    </ul>
+                </div>
+                
+                <div class='signature'>
+                    Saygılarımızla,<br>
+                    <span class='team-name'>Camply Ekibi</span>
+                </div>
+            </div>
+            
+            <div class='email-footer'>
+                <p>Bu otomatik bir e-postadır, lütfen yanıtlamayınız.</p>
+                <p style='margin-bottom: 0;'>© 2025 Camply. Tüm hakları saklıdır.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    ";
 
             return await SendEmailAsync(email, subject, body);
         }
-
         public async Task<bool> SendEmailAsync(string to, string subject, string body)
         {
             try

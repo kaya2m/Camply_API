@@ -424,7 +424,5 @@ namespace Camply.API.Controllers
                     new { message = "Şifre sıfırlama işlemi sırasında bir hata oluştu" });
             }
         }
-
-  
     }
 }
