@@ -532,6 +532,109 @@ namespace Camply.Infrastructure.Services
             };
         }
 
+        public async Task<bool> SendEmailVerificationCodeAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
+
+                if (user.IsEmailVerified)
+                {
+                    return true;
+                }
+
+                string verificationCode = _codeBuilder.GenerateSixDigitCode();
+
+                user.EmailVerificationCode = verificationCode;
+                user.EmailVerificationExpiry = DateTime.UtcNow.AddMinutes(_codeSettings.CodeExpirationMinutes);
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                var emailResult = await _emailService.SendEmailVerificationAsync(
+                    user.Email,
+                    user.Username,
+                    verificationCode);
+
+                _logger.LogInformation($"Email verification code sent for user: {user.Id}");
+                return emailResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error sending email verification code for user ID: {userId}");
+                throw;
+            }
+        }
+
+        public async Task<bool> VerifyEmailAsync(string email, string code)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
+                {
+                    return false;
+                }
+
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.Email == email &&
+                    u.EmailVerificationCode == code &&
+                    u.EmailVerificationExpiry > DateTime.UtcNow &&
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    return false;
+                }
+
+                user.IsEmailVerified = true;
+                user.EmailVerificationCode = null;
+                user.EmailVerificationExpiry = null;
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                _logger.LogInformation($"Email verified for user: {user.Id}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error verifying email: Email={email}");
+                return false;
+            }
+        }
+
+        public async Task<bool> ResendEmailVerificationCodeAsync(string email)
+        {
+            try
+            {
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.Email == email &&
+                    !u.IsEmailVerified &&
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    _logger.LogInformation($"Email verification code resend requested for non-existent or already verified email: {email}");
+                    return true;
+                }
+
+                return await SendEmailVerificationCodeAsync(user.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error resending email verification code for email: {email}");
+                throw;
+            }
+        }
+
 
         #endregion
     }

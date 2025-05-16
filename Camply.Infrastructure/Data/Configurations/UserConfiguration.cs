@@ -34,9 +34,6 @@ namespace Camply.Infrastructure.Data.Configurations
             builder.Property(u => u.Bio)
                 .HasMaxLength(500);
 
-            builder.Property(u => u.EmailVerificationToken)
-                .HasMaxLength(100);
-
             builder.Property(u => u.Settings)
                 .HasColumnType("jsonb");
 

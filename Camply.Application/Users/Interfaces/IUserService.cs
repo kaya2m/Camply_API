@@ -21,5 +21,9 @@ namespace Camply.Application.Users.Interfaces
         Task<bool> ForgotPassword(string email);
         Task<bool> VerifyResetCode(string email, string code);
         Task<bool>ResetPassword(string email, string newPassword);
+
+        Task<bool> SendEmailVerificationCodeAsync(Guid userId);
+        Task<bool> VerifyEmailAsync(string email, string code);
+        Task<bool> ResendEmailVerificationCodeAsync(string email);
     }
 }

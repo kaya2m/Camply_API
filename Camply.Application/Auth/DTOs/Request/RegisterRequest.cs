@@ -10,7 +10,8 @@ namespace Camply.Application.Auth.DTOs.Request
     public class RegisterRequest
     {
         [Required]
-        [StringLength(50, MinimumLength = 3)]
+        [StringLength(25, MinimumLength = 3, ErrorMessage = "Kullanıcı adı 3-25 karakter arasında olmalıdır.")]
+        [RegularExpression("^[a-z0-9_]+$", ErrorMessage = "Kullanıcı adı sadece küçük İngilizce harfler, sayılar ve alt çizgi içerebilir.")]
         public string Username { get; set; }
 
         [Required]

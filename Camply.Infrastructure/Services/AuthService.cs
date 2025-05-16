@@ -84,7 +84,7 @@ namespace Camply.Infrastructure.Services
                 var newUser = new User
                 {
                     Id = Guid.NewGuid(),
-                    Username = request.Username,
+                    Username = request.Username.ToLower(),
                     Email = request.Email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Status = UserStatus.Active,

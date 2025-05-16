@@ -51,10 +51,14 @@ namespace Camply.Domain.Auth
         public bool IsEmailVerified { get; set; }
 
         /// <summary>
-        /// E-posta doğrulama token'ı
+        /// E-posta doğrulama code
         /// </summary>
-        public string EmailVerificationToken { get; set; }
+        public string EmailVerificationCode { get; set; }
 
+        /// <summary>
+        /// E-posta doğrulama code bitiş tarihi
+        /// </summary>
+        public DateTime? EmailVerificationExpiry { get; set; }
         /// <summary>
         /// Son giriş tarihi
         /// </summary>
