@@ -1,16 +1,18 @@
-﻿using System;
+﻿using Camply.Application.Common.Interfaces;
+using Camply.Application.Messages.DTOs;
+using Camply.Application.Users.DTOs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Camply.Application.Common.Interfaces;
-using Camply.Application.Users.DTOs;
 
 namespace Camply.Application.Users.Interfaces
 {
     public interface IUserService
     {
         Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null);
+        Task<UserMinimalDto> GetUserMinimalAsync(string userId);
         Task<UserProfileResponse> GetUserProfileByUsernameAsync(string username, Guid? currentUserId = null);
         Task<UserProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);

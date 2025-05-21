@@ -2,6 +2,9 @@
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
 using Camply.Application.Common.Interfaces;
+using Camply.Application.Messages.Interfaces;
+using Camply.Application.Messages.Interfaces.Services;
+using Camply.Application.Messages.Services;
 using Camply.Application.Users.Interfaces;
 using Camply.Domain.Common;
 using Camply.Domain.Repositories;
@@ -9,6 +12,7 @@ using Camply.Infrastructure.Data;
 using Camply.Infrastructure.Data.Repositories;
 using Camply.Infrastructure.ExternalServices;
 using Camply.Infrastructure.Options;
+using Camply.Infrastructure.Repositories.Messages;
 using Camply.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -57,6 +61,15 @@ namespace Camply.API.Configuration
             // User services
             services.AddScoped<IUserService, UserService>();
 
+            // Chat Services 
+            services.AddScoped<IConversationRepository, ConversationRepository>();
+            services.AddScoped<IMessageRepository, MessageRepository>();
+            services.AddScoped<IReactionRepository, ReactionRepository>();
+        
+            services.AddScoped<IConversationService, ConversationService>();
+            services.AddScoped<IMessageService, MessageService>();
+            services.AddScoped<IReactionService, ReactionService>();
+
             return services;
         }
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
@@ -73,6 +86,12 @@ namespace Camply.API.Configuration
             services.Configure<CodeSettings>(configuration.GetSection("CodeSettings"));
             services.AddScoped<ICodeBuilderService, CodeBuilderService>();
 
+            // MongoDB yapılandırması
+            services.Configure<MongoDbSettings>(configuration.GetSection("MongoDbSettings"));
+            services.AddSingleton<MongoDbContext>();
+
+           //Chat User Service
+              services.AddSingleton<UserPresenceTracker>();
             return services;
         }
         /// <summary>
@@ -140,7 +159,7 @@ namespace Camply.API.Configuration
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
                     Name = "Authorization",
                     In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
+                    Type = SecuritySchemeType.Http,
                     Scheme = "Bearer"
                 });
 

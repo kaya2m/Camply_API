@@ -1,4 +1,5 @@
 ﻿using Camply.Application.Common.Interfaces;
+using Camply.Application.Messages.DTOs;
 using Camply.Application.Users.DTOs;
 using Camply.Application.Users.Interfaces;
 using Camply.Domain;
@@ -70,7 +71,34 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+        public async Task<UserMinimalDto> GetUserMinimalAsync(string userId)
+        {
+            try
+            {
+                if (!Guid.TryParse(userId, out Guid userGuid))
+                {
+                    throw new ArgumentException($"Invalid user ID format: {userId}");
+                }
 
+                var user = await _userRepository.GetByIdAsync(userGuid);
+                if (user == null)
+                {
+                    return null;
+                }
+
+                return new UserMinimalDto
+                {
+                    Id = user.Id.ToString(),
+                    Username = user.Username,
+                    ProfilePictureUrl = user.ProfileImageUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting minimal user info for ID {userId}");
+                throw;
+            }
+        }
         public async Task<UserProfileResponse> GetUserProfileByUsernameAsync(string username, Guid? currentUserId = null)
         {
             try

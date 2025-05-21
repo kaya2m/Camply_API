@@ -1,4 +1,5 @@
 using Camply.API.Configuration;
+using Camply.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,8 @@ builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddRateLimit(builder.Configuration)
                 .AddCorsConfiguration(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR();
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
@@ -39,8 +42,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseEndpoints(endpoints =>
 {
-    endpoints.MapControllers();
+    endpoints.MapControllers(); 
 });
+app.MapHub<ChatHub>("/chatHub");
 await app.UseDataInitializer();
 
 app.Run();
