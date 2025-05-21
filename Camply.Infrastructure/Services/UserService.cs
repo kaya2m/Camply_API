@@ -71,34 +71,7 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-        public async Task<UserMinimalDto> GetUserMinimalAsync(string userId)
-        {
-            try
-            {
-                if (!Guid.TryParse(userId, out Guid userGuid))
-                {
-                    throw new ArgumentException($"Invalid user ID format: {userId}");
-                }
 
-                var user = await _userRepository.GetByIdAsync(userGuid);
-                if (user == null)
-                {
-                    return null;
-                }
-
-                return new UserMinimalDto
-                {
-                    Id = user.Id.ToString(),
-                    Username = user.Username,
-                    ProfilePictureUrl = user.ProfileImageUrl
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error getting minimal user info for ID {userId}");
-                throw;
-            }
-        }
         public async Task<UserProfileResponse> GetUserProfileByUsernameAsync(string username, Guid? currentUserId = null)
         {
             try
@@ -389,7 +362,7 @@ namespace Camply.Infrastructure.Services
                 if (user == null)
                 {
                     _logger.LogInformation($"Password reset requested for non-existent email: {email}");
-                    return true; 
+                    return true;
                 }
 
                 string resetCode = _codeBuilder.GenerateSixDigitCode();
@@ -405,7 +378,7 @@ namespace Camply.Infrastructure.Services
                     email,
                     user.Username,
                     resetCode
-                    ); 
+                    );
 
                 _logger.LogInformation($"Password reset code generated for user: {user.Id}");
                 return true;
@@ -471,7 +444,7 @@ namespace Camply.Infrastructure.Services
                     u.Email == email &&
                     u.PasswordResetCodeExpiry > DateTime.UtcNow &&
                     u.IsPasswordResetCodeVerified == true &&
-                    u.CodeVerifiedAt > DateTime.UtcNow.AddMinutes(-15) && 
+                    u.CodeVerifiedAt > DateTime.UtcNow.AddMinutes(-15) &&
                     u.Status == UserStatus.Active &&
                     !u.IsDeleted);
 
@@ -513,6 +486,138 @@ namespace Camply.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during password reset");
+                throw;
+            }
+        }
+        public async Task<bool> SendEmailVerificationCodeAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
+
+                if (user.IsEmailVerified)
+                {
+                    return true;
+                }
+
+                string verificationCode = _codeBuilder.GenerateSixDigitCode();
+
+                user.EmailVerificationCode = verificationCode;
+                user.EmailVerificationExpiry = DateTime.UtcNow.AddMinutes(_codeSettings.CodeExpirationMinutes);
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                var emailResult = await _emailService.SendEmailVerificationAsync(
+                    user.Email,
+                    user.Username,
+                    verificationCode);
+
+                _logger.LogInformation($"Email verification code sent for user: {user.Id}");
+                return emailResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error sending email verification code for user ID: {userId}");
+                throw;
+            }
+        }
+
+        public async Task<bool> VerifyEmailAsync(string email, string code)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
+                {
+                    return false;
+                }
+
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.Email == email &&
+                    u.EmailVerificationCode == code &&
+                    u.EmailVerificationExpiry > DateTime.UtcNow &&
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    return false;
+                }
+
+                user.IsEmailVerified = true;
+                user.EmailVerificationCode = null;
+                user.EmailVerificationExpiry = null;
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                _logger.LogInformation($"Email verified for user: {user.Id}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error verifying email: Email={email}");
+                return false;
+            }
+        }
+
+        public async Task<bool> ResendEmailVerificationCodeAsync(string email)
+        {
+            try
+            {
+                var user = await _userRepository.SingleOrDefaultAsync(u =>
+                    u.Email == email &&
+                    !u.IsEmailVerified &&
+                    u.Status == UserStatus.Active &&
+                    !u.IsDeleted);
+
+                if (user == null)
+                {
+                    _logger.LogInformation($"Email verification code resend requested for non-existent or already verified email: {email}");
+                    return true;
+                }
+
+                return await SendEmailVerificationCodeAsync(user.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error resending email verification code for email: {email}");
+                throw;
+            }
+        }
+        public async Task<UserMinimalDto> GetUserMinimalAsync(string userId)
+        {
+            try
+            {
+                // UserId string olarak geldiği için Guid'e dönüştürme
+                if (!Guid.TryParse(userId, out Guid userGuid))
+                {
+                    throw new ArgumentException($"Invalid user ID format: {userId}");
+                }
+
+                var user = await _userRepository.GetByIdAsync(userGuid);
+                if (user == null)
+                {
+                    // Kullanıcı bulunamadığında null döndürebilir veya varsayılan değerlerle bir nesne oluşturabilirsiniz
+                    return null;
+                }
+
+                return new UserMinimalDto
+                {
+                    Id = user.Id.ToString(), // MongoDB ID'si string olduğu için
+                    Username = user.Username,
+                    ProfilePictureUrl = user.ProfileImageUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting minimal user info for ID {userId}");
                 throw;
             }
         }

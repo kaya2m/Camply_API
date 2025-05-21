@@ -12,7 +12,6 @@ namespace Camply.Application.Users.Interfaces
     public interface IUserService
     {
         Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null);
-        Task<UserMinimalDto> GetUserMinimalAsync(string userId);
         Task<UserProfileResponse> GetUserProfileByUsernameAsync(string username, Guid? currentUserId = null);
         Task<UserProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
@@ -23,5 +22,11 @@ namespace Camply.Application.Users.Interfaces
         Task<bool> ForgotPassword(string email);
         Task<bool> VerifyResetCode(string email, string code);
         Task<bool>ResetPassword(string email, string newPassword);
+
+        Task<bool> SendEmailVerificationCodeAsync(Guid userId);
+        Task<bool> VerifyEmailAsync(string email, string code);
+        Task<bool> ResendEmailVerificationCodeAsync(string email);
+
+        Task<UserMinimalDto> GetUserMinimalAsync(string userId);
     }
 }
