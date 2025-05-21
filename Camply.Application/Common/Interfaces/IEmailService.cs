@@ -9,7 +9,8 @@ namespace Camply.Application.Common.Interfaces
         /// </summary>
         /// <param name="email">Alıcı email adresi</param>
         /// <param name="username">Kullanıcı adı</param>
-        /// <param name="code">Şifre sıfırlama code</param>
+        /// <param name="token">Şifre sıfırlama token'ı</param>
+        /// <param name="resetLink">Şifre sıfırlama linki</param>
         /// <returns>İşlem başarılı ise true</returns>
         Task<bool> SendPasswordResetEmailAsync(string email, string username, string code);
 
@@ -26,9 +27,10 @@ namespace Camply.Application.Common.Interfaces
         /// </summary>
         /// <param name="email">Alıcı email adresi</param>
         /// <param name="username">Kullanıcı adı</param>
-        /// <param name="verificationCode">Email doğrulama code</param>
+        /// <param name="token">Email doğrulama token'ı</param>
+        /// <param name="verificationLink">Doğrulama linki</param>
         /// <returns>İşlem başarılı ise true</returns>
-        Task<bool> SendEmailVerificationAsync(string email, string username, string verificationCode);
+        Task<bool> SendEmailVerificationAsync(string email, string username, string token, string verificationLink);
 
         /// <summary>
         /// Genel amaçlı email gönderir

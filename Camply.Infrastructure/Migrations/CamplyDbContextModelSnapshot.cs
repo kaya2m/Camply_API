@@ -161,11 +161,9 @@ namespace Camply.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("EmailVerificationCode")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("EmailVerificationExpiry")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("EmailVerificationToken")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
