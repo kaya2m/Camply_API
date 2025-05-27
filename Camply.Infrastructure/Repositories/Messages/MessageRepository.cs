@@ -111,26 +111,22 @@ namespace Camply.Infrastructure.Repositories.Messages
         public async Task<long> GetUnreadMessagesCountAsync(string userId, string conversationId = null)
         {
             var builder = Builders<Message>.Filter;
+            var filter = builder.Ne(m => m.SenderId, userId) &
+                         builder.Not(builder.Exists($"ReadBy.{userId}")) &
+                         builder.Eq(m => m.IsDeleted, false);
 
-            var filter = builder.Ne(m => m.SenderId, userId) & // Kullanıcının kendi gönderdiği mesajlar değil
-                         builder.Not(builder.AnyEq("ReadBy.Keys", userId)) & // Kullanıcının okumadığı
-                         builder.Eq(m => m.IsDeleted, false); // Silinmemiş
-
-            // Belirli bir konuşmaya ait mesajları filtreleme
             if (!string.IsNullOrEmpty(conversationId))
             {
                 filter &= builder.Eq(m => m.ConversationId, conversationId);
             }
             else
             {
-                // Tüm konuşmalar için, kullanıcının katıldığı konuşmaların ID'lerini bul
                 var conversationFilter = Builders<Conversation>.Filter.AnyEq(c => c.ParticipantIds, userId);
                 var conversationIds = await _context.Conversations
                     .Find(conversationFilter)
                     .Project(c => c.Id)
                     .ToListAsync();
 
-                // Bu konuşmalara ait mesajları filtrele
                 filter &= builder.In(m => m.ConversationId, conversationIds);
             }
 

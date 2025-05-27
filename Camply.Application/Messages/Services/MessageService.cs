@@ -94,10 +94,13 @@ namespace Camply.Application.Messages.Services
                     throw new UnauthorizedAccessException($"User {senderId} is not authorized to send message to conversation {sendMessageDto.ConversationId}");
                 }
 
-                // Yanıtlanan mesajı kontrol et
-                if (!string.IsNullOrEmpty(sendMessageDto.ReplyToMessageId))
+                string replyToMessageId = string.IsNullOrWhiteSpace(sendMessageDto.ReplyToMessageId)
+             ? null
+             : sendMessageDto.ReplyToMessageId;
+
+                if (!string.IsNullOrEmpty(replyToMessageId))
                 {
-                    var replyMessage = await _messageRepository.GetMessageByIdAsync(sendMessageDto.ReplyToMessageId);
+                    var replyMessage = await _messageRepository.GetMessageByIdAsync(replyToMessageId);
                     if (replyMessage == null || replyMessage.ConversationId != sendMessageDto.ConversationId)
                     {
                         throw new InvalidOperationException("Invalid reply message ID");
@@ -110,7 +113,7 @@ namespace Camply.Application.Messages.Services
                     SenderId = senderId,
                     Content = sendMessageDto.Content,
                     MessageType = sendMessageDto.MessageType,
-                    ReplyToMessageId = sendMessageDto.ReplyToMessageId,
+                    ReplyToMessageId = replyToMessageId,
                     CreatedAt = DateTime.UtcNow,
                     ReadBy = new Dictionary<string, DateTime> { { senderId, DateTime.UtcNow } },
                     Media = sendMessageDto.Media?.Select(m => new MediaAttachment

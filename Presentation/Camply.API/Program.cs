@@ -27,6 +27,8 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TheCamply API v1"));
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
