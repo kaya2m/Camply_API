@@ -1,5 +1,6 @@
 using Camply.API.Configuration;
 using Camply.API.Hubs;
+using Camply.Application.Common.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddApplicationServices()
                 .AddInfrastructureServices(builder.Configuration)
+                  .AddMediaServices(builder.Configuration)
                 .AddJwtAuthentication(builder.Configuration)
                 .AddSwaggerConfiguration()
                 .AddRateLimit(builder.Configuration)
@@ -46,7 +48,19 @@ app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers(); 
 });
+
 app.MapHub<ChatHub>("/chatHub");
 await app.UseDataInitializer();
+
+// Initialize blob storage
+using (var scope = app.Services.CreateScope())
+{
+    var blobInitializer = scope.ServiceProvider.GetService<IBlobStorageInitializer>();
+    if (blobInitializer != null)
+    {
+        await blobInitializer.InitializeAsync();
+    }
+}
+
 
 app.Run();

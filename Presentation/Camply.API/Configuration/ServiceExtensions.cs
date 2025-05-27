@@ -2,6 +2,7 @@
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
 using Camply.Application.Common.Interfaces;
+using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.Interfaces;
 using Camply.Application.Messages.Interfaces.Services;
 using Camply.Application.Messages.Services;
@@ -92,6 +93,27 @@ namespace Camply.API.Configuration
 
            //Chat User Service
               services.AddSingleton<UserPresenceTracker>();
+            return services;
+        }
+        /// <summary>
+        ///  Media hizmetlerinin kaydı ve yapılandırması
+        /// </summary>
+        /// <param name="services"></param>
+        /// <param name="configuration"></param>
+        /// <returns></returns>
+        public static IServiceCollection AddMediaServices(this IServiceCollection services, IConfiguration configuration)
+        {
+            // Blob Storage settings
+            services.Configure<BlobStorageSettings>(configuration.GetSection("BlobStorage"));
+
+            // Cloudflare settings
+            services.Configure<CloudflareSettings>(configuration.GetSection("Cloudflare"));
+
+            // Services
+            services.AddScoped<IMediaService, BlobStorageMediaService>();
+            services.AddScoped<ICloudflareService, CloudflareService>();
+            services.AddScoped<IBlobStorageInitializer, BlobStorageInitializer>();
+
             return services;
         }
         /// <summary>
