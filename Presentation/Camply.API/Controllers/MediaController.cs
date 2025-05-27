@@ -530,25 +530,25 @@ namespace Camply.API.Controllers
                 }
 
                 var media = profileMedia.Items.First();
-                var cloudflareService = HttpContext.RequestServices.GetService<ICloudflareService>();
+                //var cloudflareService = HttpContext.RequestServices.GetService<ICloudflareService>();
 
-                if (cloudflareService != null)
-                {
-                    var (width, height) = GetProfileImageSize(size);
-                    var optimizedUrl = await cloudflareService.GetOptimizedImageUrl(
-                        media.Url, width, height, "webp");
+                //if (cloudflareService != null)
+                //{
+                //    var (width, height) = GetProfileImageSize(size);
+                //    var optimizedUrl = await cloudflareService.GetOptimizedImageUrl(
+                //        media.Url, width, height, "webp");
 
-                    return Ok(new ProfileImageResponse
-                    {
-                        Url = optimizedUrl,
-                        IsDefault = false,
-                        Size = size,
-                        Width = width,
-                        Height = height
-                    });
-                }
+                //    return Ok(new ProfileImageResponse
+                //    {
+                //        Url = optimizedUrl,
+                //        IsDefault = false,
+                //        Size = size,
+                //        Width = width,
+                //        Height = height
+                //    });
+                //}
 
-                return Ok(new ProfileImageResponse
+                return Ok(new ProfileImageResponse  
                 {
                     Url = media.Url,
                     IsDefault = false,

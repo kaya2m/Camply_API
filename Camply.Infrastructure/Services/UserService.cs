@@ -621,6 +621,36 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+
+        // UserService içinde:
+        public async Task<List<UserMinimalDto>> GetUsersMinimalByIdsAsync(List<string> userIds)
+        {
+            if (userIds == null || !userIds.Any())
+                return new List<UserMinimalDto>();
+
+            try
+            {
+                var guidIds = userIds
+                    .Where(id => Guid.TryParse(id, out _))
+                    .Select(id => Guid.Parse(id))
+                    .ToList();
+
+                var users = await _userRepository.FindByIdsAsync(guidIds, u => u.Id);
+
+                return users.Select(user => new UserMinimalDto
+                {
+                    Id = user.Id.ToString(),
+                    Username = user.Username,
+                    ProfilePictureUrl = user.ProfileImageUrl
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting minimal user info for {userIds.Count} users");
+                return new List<UserMinimalDto>();
+            }
+        }
+
         #region Helper Methods
 
         private async Task<UserProfileResponse> BuildUserProfileResponseAsync(User user, Guid? currentUserId)

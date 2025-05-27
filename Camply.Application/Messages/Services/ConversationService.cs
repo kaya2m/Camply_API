@@ -22,18 +22,32 @@ namespace Camply.Application.Messages.Services
             _conversationRepository = conversationRepository;
             _userService = userService;
         }
-
         public async Task<IEnumerable<ConversationDto>> GetUserConversationsAsync(string userId, int page = 1, int pageSize = 20)
         {
             int skip = (page - 1) * pageSize;
+
             var conversations = await _conversationRepository.GetUserConversationsAsync(userId, skip, pageSize);
 
-            var conversationDtos = new List<ConversationDto>();
+            var allParticipantIds = conversations
+                .SelectMany(c => c.ParticipantIds)
+                .Distinct()
+                .ToList();
 
+            var allParticipants = await _userService.GetUsersMinimalByIdsAsync(allParticipantIds);
+
+            var participantsDict = allParticipants.ToDictionary(p => p.Id, p => p);
+
+            var conversationDtos = new List<ConversationDto>();
             foreach (var conversation in conversations)
             {
-                var participants = await GetParticipantsAsync(conversation.ParticipantIds);
-                var lastMessageSender = participants.FirstOrDefault(p => p.Id == conversation.LastMessageSenderId);
+                var participants = conversation.ParticipantIds
+                    .Where(id => participantsDict.ContainsKey(id))
+                    .Select(id => participantsDict[id])
+                    .ToList();
+
+                var lastMessageSender = conversation.LastMessageSenderId != null &&
+                                       participantsDict.ContainsKey(conversation.LastMessageSenderId) ?
+                                       participantsDict[conversation.LastMessageSenderId] : null;
 
                 conversationDtos.Add(new ConversationDto
                 {
@@ -54,13 +68,11 @@ namespace Camply.Application.Messages.Services
 
             return conversationDtos;
         }
-
         public async Task<ConversationDto> GetConversationByIdAsync(string id, string userId)
         {
             var conversation = await _conversationRepository.GetConversationByIdAsync(id);
             if (conversation == null) return null;
 
-            // Kullanıcının bu konuşmaya erişim yetkisi var mı?
             if (!conversation.ParticipantIds.Contains(userId)) return null;
 
             var participants = await GetParticipantsAsync(conversation.ParticipantIds);

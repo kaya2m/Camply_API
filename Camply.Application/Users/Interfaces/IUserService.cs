@@ -28,5 +28,6 @@ namespace Camply.Application.Users.Interfaces
         Task<bool> ResendEmailVerificationCodeAsync(string email);
 
         Task<UserMinimalDto> GetUserMinimalAsync(string userId);
+        Task<List<UserMinimalDto>> GetUsersMinimalByIdsAsync(List<string> userIds);
     }
 }

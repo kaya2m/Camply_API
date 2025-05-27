@@ -13,13 +13,7 @@ using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Webp;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Camply.Application.Common.Models;
 
 namespace Camply.Infrastructure.Services
@@ -51,8 +45,18 @@ namespace Camply.Infrastructure.Services
             _cloudflareService = cloudflareService;
             _logger = logger;
 
-            _blobServiceClient = new BlobServiceClient(_settings.ConnectionString);
-            _containerClient = _blobServiceClient.GetBlobContainerClient(_settings.ContainerName);
+            try
+            {
+                _blobServiceClient = new BlobServiceClient(_settings.ConnectionString);
+                _containerClient = _blobServiceClient.GetBlobContainerClient(_settings.ContainerName);
+
+                _logger.LogInformation("BlobStorageMediaService initialized successfully with container: {ContainerName}", _settings.ContainerName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize BlobStorageMediaService");
+                throw;
+            }
         }
 
         public async Task<MediaUploadResponse> UploadMediaAsync(Guid userId, IFormFile file)
@@ -60,10 +64,14 @@ namespace Camply.Infrastructure.Services
             try
             {
                 await ValidateFile(file);
+                _logger.LogInformation("File validation passed for user {UserId}, file: {FileName}", userId, file.FileName);
 
                 var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
+                {
+                    _logger.LogWarning("User not found with ID: {UserId}", userId);
                     throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
 
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 var mediaType = DetermineMediaType(fileExtension);
@@ -73,14 +81,43 @@ namespace Camply.Infrastructure.Services
                 var folderPath = $"{mediaType.ToString().ToLower()}/{DateTime.UtcNow:yyyy/MM}";
                 var blobName = $"{folderPath}/{fileName}";
 
+                _logger.LogInformation("Uploading file to blob: {BlobName}", blobName);
+
                 using var stream = file.OpenReadStream();
+
+                // Ensure container exists
+                await _containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
                 // Upload original file
                 var blobClient = _containerClient.GetBlobClient(blobName);
-                var uploadResult = await blobClient.UploadAsync(stream, new BlobHttpHeaders
+
+                var blobHttpHeaders = new BlobHttpHeaders
                 {
                     ContentType = file.ContentType
-                });
+                };
+
+                var metadata = new Dictionary<string, string>
+                {
+                    ["OriginalFileName"] = file.FileName,
+                    ["UploadedBy"] = userId.ToString(),
+                    ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
+                    ["MediaType"] = mediaType.ToString()
+                };
+
+                var uploadOptions = new BlobUploadOptions
+                {
+                    HttpHeaders = blobHttpHeaders,
+                    Metadata = metadata
+                };
+
+                var uploadResult = await blobClient.UploadAsync(stream, uploadOptions);
+
+                if (uploadResult == null)
+                {
+                    throw new InvalidOperationException("Failed to upload file to blob storage");
+                }
+
+                _logger.LogInformation("File uploaded successfully to blob: {BlobName}", blobName);
 
                 // Create media record
                 var media = new Media
@@ -89,7 +126,7 @@ namespace Camply.Infrastructure.Services
                     FileName = Path.GetFileNameWithoutExtension(file.FileName),
                     FileType = fileExtension,
                     MimeType = file.ContentType,
-                    Url = GetBlobUrl(blobName),
+                    Url = blobClient.Uri.ToString(),
                     FileSize = file.Length,
                     Type = mediaType,
                     Status = MediaStatus.Processing,
@@ -100,11 +137,21 @@ namespace Camply.Infrastructure.Services
                 // Process image variants if it's an image
                 if (mediaType == MediaType.Image)
                 {
-                    stream.Position = 0;
-                    var imageData = await ProcessImageVariants(stream, blobName, folderPath);
-                    media.Width = imageData.Width;
-                    media.Height = imageData.Height;
-                    media.ThumbnailUrl = imageData.ThumbnailUrl;
+                    try
+                    {
+                        stream.Position = 0;
+                        var imageData = await ProcessImageVariants(stream, blobName, folderPath);
+                        media.Width = imageData.Width;
+                        media.Height = imageData.Height;
+                        media.ThumbnailUrl = imageData.ThumbnailUrl;
+
+                        _logger.LogInformation("Image variants processed successfully for {BlobName}", blobName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to process image variants for {BlobName}", blobName);
+                        // Continue without thumbnails if image processing fails
+                    }
                 }
 
                 media.Status = MediaStatus.Active;
@@ -112,14 +159,18 @@ namespace Camply.Infrastructure.Services
                 await _mediaRepository.AddAsync(media);
                 await _mediaRepository.SaveChangesAsync();
 
+                _logger.LogInformation("Media record created successfully with ID: {MediaId}", media.Id);
+
                 return new MediaUploadResponse
                 {
                     Id = media.Id,
                     FileName = media.FileName,
                     FileType = media.FileType,
                     MimeType = media.MimeType,
-                    Url = media.Url,
-                    ThumbnailUrl = media.ThumbnailUrl,
+                    Url = GenerateSecureUrl(media.Url), // SAS token ile
+                    ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl)
+                            ? GenerateSecureUrl(media.ThumbnailUrl)
+                            : null,
                     FileSize = media.FileSize,
                     Width = media.Width,
                     Height = media.Height,
@@ -128,7 +179,7 @@ namespace Camply.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading media file");
+                _logger.LogError(ex, "Error uploading media file for user {UserId}", userId);
                 throw;
             }
         }
@@ -150,12 +201,32 @@ namespace Camply.Infrastructure.Services
                 var folderPath = $"{mediaType.ToString().ToLower()}/{DateTime.UtcNow:yyyy/MM}";
                 var blobName = $"{folderPath}/{uniqueFileName}";
 
+                // Ensure container exists
+                await _containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
+
                 // Upload to blob storage
                 var blobClient = _containerClient.GetBlobClient(blobName);
-                await blobClient.UploadAsync(fileStream, new BlobHttpHeaders
+
+                var blobHttpHeaders = new BlobHttpHeaders
                 {
                     ContentType = contentType
-                });
+                };
+
+                var metadata = new Dictionary<string, string>
+                {
+                    ["OriginalFileName"] = fileName,
+                    ["UploadedBy"] = userId.ToString(),
+                    ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
+                    ["MediaType"] = mediaType.ToString()
+                };
+
+                var uploadOptions = new BlobUploadOptions
+                {
+                    HttpHeaders = blobHttpHeaders,
+                    Metadata = metadata
+                };
+
+                await blobClient.UploadAsync(fileStream, uploadOptions);
 
                 // Create media record
                 var media = new Media
@@ -164,7 +235,7 @@ namespace Camply.Infrastructure.Services
                     FileName = Path.GetFileNameWithoutExtension(fileName),
                     FileType = fileExtension,
                     MimeType = contentType,
-                    Url = GetBlobUrl(blobName),
+                    Url = blobClient.Uri.ToString(),
                     FileSize = fileStream.Length,
                     Type = mediaType,
                     Status = MediaStatus.Active,
@@ -175,11 +246,19 @@ namespace Camply.Infrastructure.Services
                 // Process image variants if it's an image
                 if (mediaType == MediaType.Image)
                 {
-                    fileStream.Position = 0;
-                    var imageData = await ProcessImageVariants(fileStream, blobName, folderPath);
-                    media.Width = imageData.Width;
-                    media.Height = imageData.Height;
-                    media.ThumbnailUrl = imageData.ThumbnailUrl;
+                    try
+                    {
+                        fileStream.Position = 0;
+                        var imageData = await ProcessImageVariants(fileStream, blobName, folderPath);
+                        media.Width = imageData.Width;
+                        media.Height = imageData.Height;
+                        media.ThumbnailUrl = imageData.ThumbnailUrl;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to process image variants");
+                        // Continue without thumbnails
+                    }
                 }
 
                 await _mediaRepository.AddAsync(media);
@@ -191,8 +270,10 @@ namespace Camply.Infrastructure.Services
                     FileName = media.FileName,
                     FileType = media.FileType,
                     MimeType = media.MimeType,
-                    Url = media.Url,
-                    ThumbnailUrl = media.ThumbnailUrl,
+                    Url = GenerateSecureUrl(media.Url), // SAS token ile
+                    ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl)
+                            ? GenerateSecureUrl(media.ThumbnailUrl)
+                            : null,
                     FileSize = media.FileSize,
                     Width = media.Width,
                     Height = media.Height,
@@ -222,8 +303,10 @@ namespace Camply.Infrastructure.Services
                     FileName = media.FileName,
                     FileType = media.FileType,
                     MimeType = media.MimeType,
-                    Url = GenerateSignedUrl(media.Url),
-                    ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl) ? GenerateSignedUrl(media.ThumbnailUrl) : null,
+                    Url = GenerateSecureUrl(media.Url), // SAS token ile güvenli URL
+                    ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl)
+                        ? GenerateSecureUrl(media.ThumbnailUrl)
+                        : null,
                     FileSize = media.FileSize,
                     Width = media.Width,
                     Height = media.Height,
@@ -242,7 +325,6 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-
         public async Task<PagedResponse<MediaSummaryResponse>> GetMediaByUserAsync(Guid userId, int pageNumber, int pageSize)
         {
             try
@@ -260,17 +342,23 @@ namespace Camply.Infrastructure.Services
                     .Take(pageSize)
                     .ToList();
 
-                var mediaResponses = paginatedMedia.Select(m => new MediaSummaryResponse
+                var mediaResponses = new List<MediaSummaryResponse>();
+                foreach (var m in paginatedMedia)
                 {
-                    Id = m.Id,
-                    Url = GenerateSignedUrl(m.Url),
-                    ThumbnailUrl = !string.IsNullOrEmpty(m.ThumbnailUrl) ? GenerateSignedUrl(m.ThumbnailUrl) : null,
-                    FileType = m.FileType,
-                    Description = m.Description,
-                    AltTag = m.AltTag,
-                    Width = m.Width,
-                    Height = m.Height
-                }).ToList();
+                    mediaResponses.Add(new MediaSummaryResponse
+                    {
+                        Id = m.Id,
+                        Url = GenerateSecureUrl(m.Url), // SAS token ile
+                        ThumbnailUrl = !string.IsNullOrEmpty(m.ThumbnailUrl)
+                            ? GenerateSecureUrl(m.ThumbnailUrl)
+                            : null,
+                        FileType = m.FileType,
+                        Description = m.Description,
+                        AltTag = m.AltTag,
+                        Width = m.Width,
+                        Height = m.Height
+                    });
+                }
 
                 return new PagedResponse<MediaSummaryResponse>
                 {
@@ -306,17 +394,23 @@ namespace Camply.Infrastructure.Services
                     .Take(pageSize)
                     .ToList();
 
-                var mediaResponses = paginatedMedia.Select(m => new MediaSummaryResponse
+                var mediaResponses = new List<MediaSummaryResponse>();
+                foreach (var m in paginatedMedia)
                 {
-                    Id = m.Id,
-                    Url = GenerateSignedUrl(m.Url),
-                    ThumbnailUrl = !string.IsNullOrEmpty(m.ThumbnailUrl) ? GenerateSignedUrl(m.ThumbnailUrl) : null,
-                    FileType = m.FileType,
-                    Description = m.Description,
-                    AltTag = m.AltTag,
-                    Width = m.Width,
-                    Height = m.Height
-                }).ToList();
+                    mediaResponses.Add(new MediaSummaryResponse
+                    {
+                        Id = m.Id,
+                        Url = GenerateSecureUrl(m.Url), // SAS token ile
+                        ThumbnailUrl = !string.IsNullOrEmpty(m.ThumbnailUrl)
+                            ? GenerateSecureUrl(m.ThumbnailUrl)
+                            : null,
+                        FileType = m.FileType,
+                        Description = m.Description,
+                        AltTag = m.AltTag,
+                        Width = m.Width,
+                        Height = m.Height
+                    });
+                }
 
                 return new PagedResponse<MediaSummaryResponse>
                 {
@@ -348,7 +442,12 @@ namespace Camply.Infrastructure.Services
                 // Delete from blob storage
                 var blobName = ExtractBlobNameFromUrl(media.Url);
                 var blobClient = _containerClient.GetBlobClient(blobName);
-                await blobClient.DeleteIfExistsAsync();
+
+                var deleteResult = await blobClient.DeleteIfExistsAsync();
+                if (deleteResult.Value)
+                {
+                    _logger.LogInformation("Successfully deleted blob: {BlobName}", blobName);
+                }
 
                 // Delete thumbnail if exists
                 if (!string.IsNullOrEmpty(media.ThumbnailUrl))
@@ -356,6 +455,20 @@ namespace Camply.Infrastructure.Services
                     var thumbnailBlobName = ExtractBlobNameFromUrl(media.ThumbnailUrl);
                     var thumbnailBlobClient = _containerClient.GetBlobClient(thumbnailBlobName);
                     await thumbnailBlobClient.DeleteIfExistsAsync();
+                }
+
+                // Purge from Cloudflare cache
+                try
+                {
+                    await _cloudflareService.PurgeCache(media.Url);
+                    if (!string.IsNullOrEmpty(media.ThumbnailUrl))
+                    {
+                        await _cloudflareService.PurgeCache(media.ThumbnailUrl);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to purge cache for deleted media {MediaId}", mediaId);
                 }
 
                 // Soft delete in database
@@ -461,7 +574,39 @@ namespace Camply.Infrastructure.Services
         }
 
         #region Helper Methods
+        // SAS token ile güvenli URL oluşturma
+        private string GenerateSecureUrl(string blobUrl)
+        {
+            try
+            {
+                var blobName = ExtractBlobNameFromUrl(blobUrl);
+                var blobClient = _containerClient.GetBlobClient(blobName);
 
+                if (blobClient.CanGenerateSasUri)
+                {
+                    var sasBuilder = new BlobSasBuilder
+                    {
+                        BlobContainerName = _settings.ContainerName,
+                        BlobName = blobName,
+                        Resource = "b", // blob
+                        ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
+                    };
+                    sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+                    var sasUri = blobClient.GenerateSasUri(sasBuilder);
+                    _logger.LogDebug("Generated SAS URL for blob: {BlobName}", blobName);
+                    return sasUri.ToString();
+                }
+
+                _logger.LogWarning("Cannot generate SAS URI for blob: {BlobName}", blobName);
+                return blobUrl;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating secure URL for blob: {BlobUrl}", blobUrl);
+                return blobUrl;
+            }
+        }
         private async Task ValidateFile(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -476,7 +621,7 @@ namespace Camply.Infrastructure.Services
 
         private async Task ValidateFileExtension(string extension)
         {
-            if (!_settings.AllowedFileTypes.Contains(extension))
+            if (!_settings.AllowedFileTypes?.Contains(extension) == true)
                 throw new ArgumentException($"File type {extension} is not supported");
 
             await Task.CompletedTask;
@@ -499,13 +644,6 @@ namespace Camply.Infrastructure.Services
             return $"{Guid.NewGuid()}{extension}";
         }
 
-        private string GetBlobUrl(string blobName)
-        {
-            // Always return the direct Azure Blob URL
-            // Cloudflare CDN conversion will be handled in GetOptimizedUrl method
-            return _containerClient.GetBlobClient(blobName).Uri.ToString();
-        }
-
         private async Task<string> GetOptimizedUrl(string blobUrl, int? width = null, int? height = null, string format = null)
         {
             try
@@ -519,40 +657,20 @@ namespace Camply.Infrastructure.Services
             }
         }
 
-        private string GenerateSignedUrl(string blobUrl)
+        private string ExtractBlobNameFromUrl(string url)
         {
             try
             {
-                var blobName = ExtractBlobNameFromUrl(blobUrl);
-                var blobClient = _containerClient.GetBlobClient(blobName);
-
-                if (blobClient.CanGenerateSasUri)
-                {
-                    var sasBuilder = new BlobSasBuilder
-                    {
-                        BlobContainerName = _settings.ContainerName,
-                        BlobName = blobName,
-                        Resource = "b",
-                        ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
-                    };
-                    sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-                    return blobClient.GenerateSasUri(sasBuilder).ToString();
-                }
-
-                return blobUrl;
+                var uri = new Uri(url);
+                // Remove the container name from the path
+                var segments = uri.Segments.Skip(2); // Skip '/' and container name
+                return string.Join("", segments);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Could not generate signed URL for {blobUrl}");
-                return blobUrl;
+                _logger.LogError(ex, "Error extracting blob name from URL: {Url}", url);
+                return string.Empty;
             }
-        }
-
-        private string ExtractBlobNameFromUrl(string url)
-        {
-            var uri = new Uri(url);
-            return uri.Segments.Skip(2).Aggregate((a, b) => a + b).TrimEnd('/');
         }
 
         private async Task<(int Width, int Height, string ThumbnailUrl)> ProcessImageVariants(Stream imageStream, string originalBlobName, string folderPath)
@@ -573,7 +691,8 @@ namespace Camply.Infrastructure.Services
                 }));
 
                 // Generate thumbnail blob name
-                var thumbnailBlobName = $"{folderPath}/thumbnails/{Path.GetFileNameWithoutExtension(originalBlobName)}_thumb.jpg";
+                var originalFileName = Path.GetFileNameWithoutExtension(originalBlobName);
+                var thumbnailBlobName = $"{folderPath}/thumbnails/{originalFileName}_thumb.jpg";
 
                 // Upload thumbnail
                 using var thumbnailStream = new MemoryStream();
@@ -581,17 +700,31 @@ namespace Camply.Infrastructure.Services
                 thumbnailStream.Position = 0;
 
                 var thumbnailBlobClient = _containerClient.GetBlobClient(thumbnailBlobName);
-                await thumbnailBlobClient.UploadAsync(thumbnailStream, new BlobHttpHeaders
+
+                var blobHttpHeaders = new BlobHttpHeaders
                 {
                     ContentType = "image/jpeg"
-                });
+                };
 
-                return (originalWidth, originalHeight, GetBlobUrl(thumbnailBlobName));
+                var uploadOptions = new BlobUploadOptions
+                {
+                    HttpHeaders = blobHttpHeaders,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["IsThumbnail"] = "true",
+                        ["OriginalImage"] = originalBlobName,
+                        ["CreatedAt"] = DateTime.UtcNow.ToString("O")
+                    }
+                };
+
+                await thumbnailBlobClient.UploadAsync(thumbnailStream, uploadOptions);
+
+                return (originalWidth, originalHeight, thumbnailBlobClient.Uri.ToString());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing image variants");
-                return (0, 0, null);
+                _logger.LogError(ex, "Error processing image variants for {OriginalBlobName}", originalBlobName);
+                throw;
             }
         }
 

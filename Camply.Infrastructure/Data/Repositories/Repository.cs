@@ -44,7 +44,27 @@ namespace Camply.Infrastructure.Data.Repositories
         {
             return await _dbSet.AnyAsync(predicate);
         }
+        // Repository sınıfına ekleyin:
+        public virtual async Task<IEnumerable<TEntity>> FindByIdsAsync<TKey>(IEnumerable<TKey> ids, Expression<Func<TEntity, TKey>> idSelector)
+        {
+            if (ids == null || !ids.Any())
+                return Enumerable.Empty<TEntity>();
 
+            var idList = ids.ToList();
+
+            var parameter = idSelector.Parameters[0];
+            var memberExpression = idSelector.Body as MemberExpression;
+
+            if (memberExpression == null)
+                throw new ArgumentException("idSelector must be a simple property selector", nameof(idSelector));
+
+            var containsMethod = typeof(List<TKey>).GetMethod("Contains", new[] { typeof(TKey) });
+            var listConstant = Expression.Constant(idList);
+            var containsExpression = Expression.Call(listConstant, containsMethod, memberExpression);
+            var lambda = Expression.Lambda<Func<TEntity, bool>>(containsExpression, parameter);
+
+            return await _dbSet.Where(lambda).ToListAsync();
+        }
         public virtual async Task<TEntity> AddAsync(TEntity entity)
         {
             await _dbSet.AddAsync(entity);

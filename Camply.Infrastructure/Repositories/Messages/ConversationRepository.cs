@@ -19,17 +19,34 @@ namespace Camply.Infrastructure.Repositories.Messages
 
         public async Task<IEnumerable<Conversation>> GetUserConversationsAsync(string userId, int skip = 0, int limit = 20)
         {
-            var filter = Builders<Conversation>.Filter.AnyEq(c => c.ParticipantIds, userId) &
-                         Builders<Conversation>.Filter.Ne(c => c.Status, "deleted");
+            var filter = Builders<Conversation>.Filter.And(
+                Builders<Conversation>.Filter.Eq("ParticipantIds", userId),
+                Builders<Conversation>.Filter.Ne(c => c.Status, "deleted")
+            );
+
+            var projection = Builders<Conversation>.Projection
+                .Include(c => c.Id)
+                .Include(c => c.ParticipantIds)
+                .Include(c => c.LastMessagePreview)
+                .Include(c => c.LastMessageSenderId)
+                .Include(c => c.LastActivityDate)
+                .Include(c => c.Title)
+                .Include(c => c.ImageUrl)
+                .Include(c => c.IsGroup)
+                .Include(c => c.IsVanish)
+                .Include(c => c.Status);
 
             var sort = Builders<Conversation>.Sort.Descending(c => c.LastActivityDate);
 
-            return await _context.Conversations
+            var conversations = await _context.Conversations
                 .Find(filter)
+                .Project<Conversation>(projection)
                 .Sort(sort)
                 .Skip(skip)
                 .Limit(limit)
                 .ToListAsync();
+
+            return conversations;
         }
 
         public async Task<Conversation> GetConversationByIdAsync(string id)

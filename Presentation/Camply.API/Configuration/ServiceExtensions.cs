@@ -96,18 +96,19 @@ namespace Camply.API.Configuration
             return services;
         }
         /// <summary>
-        ///  Media hizmetlerinin kaydı ve yapılandırması
+        /// Media hizmetlerinin kaydı ve yapılandırması
         /// </summary>
-        /// <param name="services"></param>
-        /// <param name="configuration"></param>
-        /// <returns></returns>
         public static IServiceCollection AddMediaServices(this IServiceCollection services, IConfiguration configuration)
         {
-            // Blob Storage settings
             services.Configure<BlobStorageSettings>(configuration.GetSection("BlobStorage"));
 
-            // Cloudflare settings
             services.Configure<CloudflareSettings>(configuration.GetSection("Cloudflare"));
+
+            services.AddHttpClient<CloudflareService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.Add("User-Agent", "Camply-API/1.0");
+            });
 
             // Services
             services.AddScoped<IMediaService, BlobStorageMediaService>();
@@ -116,6 +117,7 @@ namespace Camply.API.Configuration
 
             return services;
         }
+
         /// <summary>
         /// JWT Authentication yapılandırması
         /// </summary>

@@ -15,7 +15,7 @@ namespace Camply.Domain.Repositories
         Task<IEnumerable<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate);
         Task<TEntity> SingleOrDefaultAsync(Expression<Func<TEntity, bool>> predicate);
         Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate);
-
+        Task<IEnumerable<TEntity>> FindByIdsAsync<TKey>(IEnumerable<TKey> ids, Expression<Func<TEntity, TKey>> idSelector);
 
         // Write operations
         Task<TEntity> AddAsync(TEntity entity);
