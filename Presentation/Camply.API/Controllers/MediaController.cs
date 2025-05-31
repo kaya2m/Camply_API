@@ -157,10 +157,8 @@ namespace Camply.API.Controllers
 
                 var uploadResponse = await _mediaService.UploadMediaAsync(userId.Value, file);
 
-                // Set as profile image
                 await _mediaService.AssignMediaToEntityAsync(uploadResponse.Id, userId.Value, "Profile", userId.Value);
-
-                // Update description
+                
                 var updateRequest = new UpdateMediaRequest
                 {
                     Description = description,

@@ -16,6 +16,18 @@ namespace Camply.Domain.Auth
     public class User : BaseEntity
     {
         /// <summary>
+        /// Gets or sets the name associated with the object.
+        /// </summary>
+        public string Name { get; set; }
+        /// <summary>
+        /// Gets or sets the surname of the individual.
+        /// </summary>
+        public string Surname { get; set; }
+        /// <summary>
+        /// Gets or sets the birth date of the individual.
+        /// </summary>
+        public DateTime? BirthDate { get; set; }
+        /// <summary>
         /// Kullanıcı adı
         /// </summary>
         public string Username { get; set; }

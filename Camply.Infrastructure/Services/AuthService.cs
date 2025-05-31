@@ -217,6 +217,9 @@ namespace Camply.Infrastructure.Services
                     User = new UserInfo
                     {
                         Id = user.Id,
+                        Name = user.Name,
+                        Surname = user.Surname,
+                        BirthDate = user.BirthDate,
                         Username = user.Username,
                         Email = user.Email,
                         ProfileImageUrl = user.ProfileImageUrl,

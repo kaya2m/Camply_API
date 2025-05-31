@@ -97,7 +97,6 @@ namespace Camply.Application.Messages.Services
 
         public async Task<ConversationDto> CreateConversationAsync(CreateConversationDto createConversationDto, string creatorId)
         {
-            // Katılımcılar arasına oluşturan kişiyi de ekle
             if (!createConversationDto.ParticipantIds.Contains(creatorId))
             {
                 createConversationDto.ParticipantIds.Add(creatorId);
@@ -168,7 +167,6 @@ namespace Camply.Application.Messages.Services
             var conversation = await _conversationRepository.GetConversationByIdAsync(conversationId);
             if (conversation == null) return;
 
-            // Kullanıcının bu konuşmaya erişim yetkisi var mı?
             if (!conversation.ParticipantIds.Contains(userId)) return;
 
             await _conversationRepository.ArchiveConversationAsync(conversationId, userId);
@@ -179,7 +177,6 @@ namespace Camply.Application.Messages.Services
             var conversation = await _conversationRepository.GetConversationByIdAsync(conversationId);
             if (conversation == null) return;
 
-            // Kullanıcının bu konuşmaya erişim yetkisi var mı?
             if (!conversation.ParticipantIds.Contains(userId)) return;
 
             await _conversationRepository.DeleteConversationAsync(conversationId, userId);
@@ -207,14 +204,12 @@ namespace Camply.Application.Messages.Services
         {
             if (conversation.IsGroup)
             {
-                // Grup konuşması ise başlığı kullan
                 return !string.IsNullOrEmpty(conversation.Title)
                     ? conversation.Title
                     : "Grup Konuşması";
             }
             else
             {
-                // Birebir konuşma ise diğer kullanıcının adını kullan
                 var otherUser = participants.FirstOrDefault(p => p.Id != currentUserId);
                 return otherUser?.Username ?? "Kullanıcı";
             }
@@ -224,16 +219,14 @@ namespace Camply.Application.Messages.Services
         {
             if (conversation.IsGroup)
             {
-                // Grup konuşması ise konuşma resmini kullan
                 return !string.IsNullOrEmpty(conversation.ImageUrl)
                     ? conversation.ImageUrl
-                    : "/images/default-group.png"; // Varsayılan grup resmi
+                    : "/images/default-group.png"; 
             }
             else
             {
-                // Birebir konuşma ise diğer kullanıcının profil resmini kullan
                 var otherUser = participants.FirstOrDefault(p => p.Id != currentUserId);
-                return otherUser?.ProfilePictureUrl ?? "/images/default-profile.png"; // Varsayılan profil resmi
+                return otherUser?.ProfilePictureUrl ?? "/images/default-profile.png"; 
             }
         }
 

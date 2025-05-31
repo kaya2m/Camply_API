@@ -131,9 +131,6 @@ namespace Camply.Application.Messages.Services
 
                 var createdMessage = await _messageRepository.CreateMessageAsync(message);
 
-                // Konuşmanın son aktivite zamanını güncelle - repository'de yapılıyor
-
-                // Mesajın okunmamış sayılarını güncelle
                 foreach (var participantId in conversation.ParticipantIds)
                 {
                     if (participantId != senderId)
@@ -183,19 +180,16 @@ namespace Camply.Application.Messages.Services
         {
             try
             {
-                // Konuşmayı kontrol et
                 var conversation = await _conversationRepository.GetConversationByIdAsync(conversationId);
                 if (conversation == null || !conversation.ParticipantIds.Contains(userId))
                 {
                     throw new UnauthorizedAccessException($"User {userId} is not authorized to access conversation {conversationId}");
                 }
 
-                // Konuşmadaki okunmamış tüm mesajları al
                 var unreadMessages = (await _messageRepository.GetConversationMessagesAsync(conversationId))
                     .Where(m => m.SenderId != userId && !m.ReadBy.ContainsKey(userId))
                     .ToList();
 
-                // Her mesajı okundu olarak işaretle
                 foreach (var message in unreadMessages)
                 {
                     await _messageRepository.MarkAsReadAsync(message.Id, userId);
@@ -221,16 +215,13 @@ namespace Camply.Application.Messages.Services
                     throw new KeyNotFoundException($"Message with ID {messageId} not found");
                 }
 
-                // Sadece mesajı gönderen kişi düzenleyebilir
                 if (message.SenderId != userId)
                 {
                     throw new UnauthorizedAccessException($"User {userId} is not authorized to edit message {messageId}");
                 }
 
-                // Mesajı düzenle
                 await _messageRepository.EditMessageAsync(messageId, newContent);
 
-                // Düzenlenmiş mesajı al
                 var updatedMessage = await _messageRepository.GetMessageByIdAsync(messageId);
                 var messageDtos = await MapMessagesToDtosAsync(new List<Message> { updatedMessage }, userId);
                 return messageDtos.FirstOrDefault();

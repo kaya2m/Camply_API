@@ -20,5 +20,7 @@ namespace Camply.Application.Media.Interfaces
         Task<bool> UpdateMediaDetailsAsync(Guid mediaId, Guid userId, UpdateMediaRequest request);
         Task<bool> AssignMediaToEntityAsync(Guid mediaId, Guid entityId, string entityType, Guid userId);
         Task<bool> UnassignMediaFromEntityAsync(Guid mediaId, Guid userId);
+
+        Task<string> GenerateSecureUrlAsync(string blobUrl);
     }
 }

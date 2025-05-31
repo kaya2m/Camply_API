@@ -1,4 +1,5 @@
 ﻿using Camply.Application.Common.Interfaces;
+using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.DTOs;
 using Camply.Application.Users.DTOs;
 using Camply.Application.Users.Interfaces;
@@ -29,6 +30,7 @@ namespace Camply.Infrastructure.Services
         private readonly IEmailService _emailService;
         private readonly CodeSettings _codeSettings;
         private readonly ICodeBuilderService _codeBuilder;
+        private readonly IMediaService _mediaService;
         public UserService(
             IRepository<User> userRepository,
             IRepository<Post> postRepository,
@@ -39,7 +41,8 @@ namespace Camply.Infrastructure.Services
             ILogger<UserService> logger,
             IEmailService emailService,
             ICodeBuilderService codeBuilder,
-           IOptions<CodeSettings> codeSettings)
+           IOptions<CodeSettings> codeSettings,
+           IMediaService mediaService)
         {
             _userRepository = userRepository;
             _postRepository = postRepository;
@@ -51,6 +54,7 @@ namespace Camply.Infrastructure.Services
             _emailService = emailService;
             _codeBuilder = codeBuilder;
             _codeSettings = codeSettings.Value;
+            _mediaService = mediaService;
         }
 
         public async Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null)
@@ -112,14 +116,22 @@ namespace Camply.Infrastructure.Services
                     user.Username = request.Username;
                 }
 
-                if (request.Bio != null)
+                if (!string.IsNullOrWhiteSpace(request.Name) && user.Name != request.Name)
+                {
+                    user.Name = request.Name;
+                }
+                if (!string.IsNullOrWhiteSpace(request.Surname) && user.Surname != request.Surname)
+                {
+                    user.Surname = request.Surname;
+                }
+                if (!string.IsNullOrWhiteSpace(request.Bio) && user.Bio != request.Bio)
                 {
                     user.Bio = request.Bio;
                 }
 
-                if (request.ProfileImageUrl != null)
+                if (request.BirthDate != default && user.BirthDate != request.BirthDate)
                 {
-                    user.ProfileImageUrl = request.ProfileImageUrl;
+                    user.BirthDate = request.BirthDate;
                 }
 
                 user.LastModifiedAt = DateTime.UtcNow;
@@ -135,7 +147,34 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+        public async Task<bool> UpdateProfilePicture(Guid userId, string Url)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
 
+                if (!string.IsNullOrWhiteSpace(Url) )
+                {
+                    user.ProfileImageUrl = Url;
+                }
+
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating profile for user ID {userId}");
+                throw;
+            }
+        }
         public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
         {
             try
@@ -264,17 +303,23 @@ namespace Camply.Infrastructure.Services
                     ? (await _followRepository.FindAsync(f => f.FollowerId == currentUserId.Value)).ToList()
                     : new List<Follow>();
 
-                // Map to response model
-                var followerResponses = followerUsers.Select(u => new UserSummaryResponse
+                var followerResponses = new List<UserSummaryResponse>();
+                foreach (var user in followerUsers)
                 {
-                    Id = u.Id,
-                    Username = u.Username,
-                    ProfileImageUrl = u.ProfileImageUrl,
-                    IsFollowedByCurrentUser = currentUserId.HasValue &&
-                        currentUserFollowing.Any(f => f.FollowedId == u.Id)
-                }).ToList();
+                    var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
 
-                // Create paged list
+                    followerResponses.Add(new UserSummaryResponse
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Surname = user.Surname,
+                        Username = user.Username,
+                        ProfileImageUrl = secureProfileImageUrl,
+                        IsFollowedByCurrentUser = currentUserId.HasValue &&
+                            currentUserFollowing.Any(f => f.FollowedId == user.Id)
+                    });
+                }
+
                 var pagedList = new PagedList<UserSummaryResponse>
                 {
                     Items = followerResponses,
@@ -292,7 +337,6 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-
         public async Task<PagedList<UserSummaryResponse>> GetFollowingAsync(Guid userId, int pageNumber, int pageSize, Guid? currentUserId = null)
         {
             try
@@ -323,14 +367,22 @@ namespace Camply.Infrastructure.Services
                     ? (await _followRepository.FindAsync(f => f.FollowerId == currentUserId.Value)).ToList()
                     : new List<Follow>();
 
-                var followingResponses = followingUsers.Select(u => new UserSummaryResponse
+                var followingResponses = new List<UserSummaryResponse>();
+                foreach (var user in followingUsers)
                 {
-                    Id = u.Id,
-                    Username = u.Username,
-                    ProfileImageUrl = u.ProfileImageUrl,
-                    IsFollowedByCurrentUser = currentUserId.HasValue &&
-                        currentUserFollowing.Any(f => f.FollowedId == u.Id)
-                }).ToList();
+                    var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
+
+                    followingResponses.Add(new UserSummaryResponse
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Surname = user.Surname,
+                        Username = user.Username,
+                        ProfileImageUrl = secureProfileImageUrl,
+                        IsFollowedByCurrentUser = currentUserId.HasValue &&
+                            currentUserFollowing.Any(f => f.FollowedId == user.Id)
+                    });
+                }
 
                 var pagedList = new PagedList<UserSummaryResponse>
                 {
@@ -595,7 +647,6 @@ namespace Camply.Infrastructure.Services
         {
             try
             {
-                // UserId string olarak geldiği için Guid'e dönüştürme
                 if (!Guid.TryParse(userId, out Guid userGuid))
                 {
                     throw new ArgumentException($"Invalid user ID format: {userId}");
@@ -604,15 +655,16 @@ namespace Camply.Infrastructure.Services
                 var user = await _userRepository.GetByIdAsync(userGuid);
                 if (user == null)
                 {
-                    // Kullanıcı bulunamadığında null döndürebilir veya varsayılan değerlerle bir nesne oluşturabilirsiniz
                     return null;
                 }
 
+                var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
+
                 return new UserMinimalDto
                 {
-                    Id = user.Id.ToString(), // MongoDB ID'si string olduğu için
+                    Id = user.Id.ToString(),
                     Username = user.Username,
-                    ProfilePictureUrl = user.ProfileImageUrl
+                    ProfilePictureUrl = secureProfileImageUrl
                 };
             }
             catch (Exception ex)
@@ -621,7 +673,6 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
-
         // UserService içinde:
         public async Task<List<UserMinimalDto>> GetUsersMinimalByIdsAsync(List<string> userIds)
         {
@@ -637,12 +688,20 @@ namespace Camply.Infrastructure.Services
 
                 var users = await _userRepository.FindByIdsAsync(guidIds, u => u.Id);
 
-                return users.Select(user => new UserMinimalDto
+                var result = new List<UserMinimalDto>();
+                foreach (var user in users)
                 {
-                    Id = user.Id.ToString(),
-                    Username = user.Username,
-                    ProfilePictureUrl = user.ProfileImageUrl
-                }).ToList();
+                    var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
+
+                    result.Add(new UserMinimalDto
+                    {
+                        Id = user.Id.ToString(),
+                        Username = user.Username,
+                        ProfilePictureUrl = secureProfileImageUrl
+                    });
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -650,18 +709,15 @@ namespace Camply.Infrastructure.Services
                 return new List<UserMinimalDto>();
             }
         }
-
         #region Helper Methods
 
         private async Task<UserProfileResponse> BuildUserProfileResponseAsync(User user, Guid? currentUserId)
         {
-            // Get counts
             var followersCount = (await _followRepository.FindAsync(f => f.FollowedId == user.Id)).Count();
             var followingCount = (await _followRepository.FindAsync(f => f.FollowerId == user.Id)).Count();
             var postsCount = (await _postRepository.FindAsync(p => p.UserId == user.Id)).Count();
             var blogsCount = (await _blogRepository.FindAsync(b => b.UserId == user.Id)).Count();
 
-            // Check if current user is following this user
             var isFollowedByCurrentUser = false;
             if (currentUserId.HasValue && currentUserId.Value != user.Id)
             {
@@ -670,18 +726,21 @@ namespace Camply.Infrastructure.Services
                 isFollowedByCurrentUser = follow != null;
             }
 
-            // Get user roles
             var userRoles = await _userRoleRepository.FindAsync(ur => ur.UserId == user.Id);
             var roleIds = userRoles.Select(ur => ur.RoleId);
             var roles = await _roleRepository.FindAsync(r => roleIds.Contains(r.Id));
             var roleNames = roles.Select(r => r.Name).ToList();
 
+            var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
+
             return new UserProfileResponse
             {
                 Id = user.Id,
+                Name = user.Name,
+                Surname = user.Surname,
                 Username = user.Username,
                 Email = user.Email,
-                ProfileImageUrl = user.ProfileImageUrl,
+                ProfileImageUrl = secureProfileImageUrl,
                 Bio = user.Bio,
                 CreatedAt = user.CreatedAt,
                 LastLoginAt = user.LastLoginAt,
@@ -695,7 +754,23 @@ namespace Camply.Infrastructure.Services
             };
         }
 
+        private async Task<string> GetSecureProfileImageUrl(string profileImageUrl)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(profileImageUrl))
+                    return null;
 
+                return await _mediaService.GenerateSecureUrlAsync(profileImageUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error getting secure profile image URL for: {ProfileImageUrl}", profileImageUrl);
+                return profileImageUrl;
+            }
+        }
+
+    
         #endregion
     }
 }
