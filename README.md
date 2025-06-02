@@ -1,7 +1,7 @@
 # TheCamply Kampçılar İçin Sosyal Medya Uygulaması
 ## Geliştirme Yol Haritası ve Özellik Planı
 
-![TheCamply Logo](https://static.wixstatic.com/media/1997c7_ee4fb6564d0447c1ba75aac648f6bf07~mv2.png/v1/fill/w_330,h_183,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/1997c7_ee4fb6564d0447c1ba75aac648f6bf07~mv2.png)
+![TheCamply Logo](https://thecamply.com/assets/images/logo.png)
 
 ---
 
