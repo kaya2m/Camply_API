@@ -18,5 +18,6 @@ namespace Camply.Application.Media.DTOs
         public int? Width { get; set; }
         public int? Height { get; set; }
         public DateTime CreatedAt { get; set; }
+        public bool IsTemporary { get; set; }
     }
 }

@@ -82,7 +82,7 @@ namespace Camply.API.Hubs
                     throw new UnauthorizedAccessException("User not authenticated");
                 }
 
-                // Kullanıcının konuşmaya erişimi var mı kontrol et
+                // Kullanıcının konuşmaya erişimi var mı 
                 var conversation = await _conversationService.GetConversationByIdAsync(conversationId, userId);
                 if (conversation == null)
                 {

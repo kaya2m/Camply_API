@@ -6,6 +6,7 @@ using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.Interfaces;
 using Camply.Application.Messages.Interfaces.Services;
 using Camply.Application.Messages.Services;
+using Camply.Application.Posts.Interfaces;
 using Camply.Application.Users.Interfaces;
 using Camply.Domain.Common;
 using Camply.Domain.Repositories;
@@ -18,8 +19,10 @@ using Camply.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using StackExchange.Redis;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -41,7 +44,75 @@ namespace Camply.API.Configuration
 
             return services;
         }
+        public static IServiceCollection AddAzureRedisCache(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.Configure<AzureRedisSettings>(configuration.GetSection("AzureRedis"));
 
+            services.AddSingleton<IConnectionMultiplexer>(provider =>
+            {
+                var settings = provider.GetRequiredService<IOptions<AzureRedisSettings>>().Value;
+                var logger = provider.GetRequiredService<ILogger<IConnectionMultiplexer>>();
+
+                try
+                {
+                    ConfigurationOptions configuration;
+
+                    if (!string.IsNullOrEmpty(settings.ConnectionString))
+                    {
+                        configuration = ConfigurationOptions.Parse(settings.ConnectionString);
+                    }
+                    else
+                    {
+                        configuration = new ConfigurationOptions
+                        {
+                            EndPoints = { $"{settings.HostName}:{settings.Port}" },
+                            Password = settings.Password,
+                            Ssl = settings.UseSsl,
+                            AllowAdmin = settings.AllowAdmin
+                        };
+                    }
+
+                    configuration.AbortOnConnectFail = settings.AbortOnConnectFail;
+                    configuration.ConnectTimeout = settings.ConnectTimeout;
+                    configuration.SyncTimeout = settings.SyncTimeout;
+                    configuration.ConnectRetry = settings.ConnectRetry;
+                    configuration.ReconnectRetryPolicy = new ExponentialRetry(5000, 60000);
+                    configuration.KeepAlive = 180;
+
+                    logger.LogInformation("Connecting to Azure Redis Cache: {EndPoint}", configuration.EndPoints.FirstOrDefault());
+
+                    var connectionMultiplexer = ConnectionMultiplexer.Connect(configuration);
+
+                    connectionMultiplexer.ConnectionFailed += (sender, args) =>
+                    {
+                        logger.LogError("Azure Redis connection failed: {Exception}", args.Exception?.Message);
+                    };
+
+                    connectionMultiplexer.ConnectionRestored += (sender, args) =>
+                    {
+                        logger.LogInformation("Azure Redis connection restored");
+                    };
+
+                    connectionMultiplexer.InternalError += (sender, args) =>
+                    {
+                        logger.LogError("Azure Redis internal error: {Exception}", args.Exception?.Message);
+                    };
+
+                    logger.LogInformation("Successfully connected to Azure Redis Cache");
+                    return connectionMultiplexer;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to connect to Azure Redis Cache");
+                    throw;
+                }
+            });
+
+            // Cache service
+            services.AddSingleton<ICacheService, AzureRedisCacheService>();
+
+            return services;
+        }
         /// <summary>
         /// Repository ve servis bağımlılıklarının kaydı
         /// </summary>
@@ -71,6 +142,8 @@ namespace Camply.API.Configuration
             services.AddScoped<IMessageService, MessageService>();
             services.AddScoped<IReactionService, ReactionService>();
 
+            //Post Services
+            services.AddScoped<IPostService, EnhancedPostService>();
             return services;
         }
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)

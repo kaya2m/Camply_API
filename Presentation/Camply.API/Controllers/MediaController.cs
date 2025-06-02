@@ -665,10 +665,120 @@ namespace Camply.API.Controllers
         }
 
         #endregion
+   
+     /// <summary>
+        /// Step 1: Upload media files temporarily
+        /// </summary>
+        [HttpPost("upload/temporary")]
+        [ProducesResponseType(typeof(List<MediaUploadResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<List<MediaUploadResponse>>> UploadTemporaryMedia([FromForm] List<IFormFile> files)
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (files == null || files.Count == 0)
+                {
+                    return BadRequest(new { message = "No files provided" });
+                }
+
+                _logger.LogInformation("Temporary media upload request from user {UserId}, file count: {Count}",
+                    userId.Value, files.Count);
+
+                var uploadedMedia = await _mediaService.UploadTemporaryMediaAsync(userId.Value, files);
+
+                return CreatedAtAction(nameof(GetMediaById),
+                    new { id = uploadedMedia.First().Id }, uploadedMedia);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading temporary media");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while uploading media" });
+            }
+        }
+
+        /// <summary>
+        /// Get user's temporary media (uploaded but not attached to posts)
+        /// </summary>
+        [HttpGet("temporary")]
+        [ProducesResponseType(typeof(List<MediaSummaryResponse>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<MediaSummaryResponse>>> GetTemporaryMedia()
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                var temporaryMedia = await _mediaService.GetUserTemporaryMediaAsync(userId.Value);
+                return Ok(temporaryMedia);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting temporary media");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while retrieving temporary media" });
+            }
+        }
+
+
+        /// <summary>
+        /// Delete temporary media (only if not attached to any post)
+        /// </summary>
+        [HttpDelete("{id}/temporary")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> DeleteTemporaryMedia(Guid id)
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                var success = await _mediaService.DeleteMediaAsync(id, userId.Value);
+                if (!success)
+                {
+                    return NotFound(new { message = "Media not found or already attached to a post" });
+                }
+
+                return NoContent();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Media not found" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting temporary media with ID {MediaId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while deleting media" });
+            }
+        }
     }
+}
 
    
-}
 // Response DTOs
 public class OptimizedImageResponse
 {

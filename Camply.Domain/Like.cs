@@ -9,11 +9,6 @@ namespace Camply.Domain
     public class Like : BaseTrackingEntity
     {
         /// <summary>
-        /// Beğeni ID'si
-        /// </summary>
-        public Guid Id { get; set; }
-
-        /// <summary>
         /// Beğeniyi yapan kullanıcı ID'si
         /// </summary>
         public Guid UserId { get; set; }

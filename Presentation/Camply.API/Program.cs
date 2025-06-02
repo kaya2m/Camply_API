@@ -8,9 +8,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
+                .AddAzureRedisCache(builder.Configuration)
                 .AddApplicationServices()
                 .AddInfrastructureServices(builder.Configuration)
-                  .AddMediaServices(builder.Configuration)
+                 .AddMediaServices(builder.Configuration)
                 .AddJwtAuthentication(builder.Configuration)
                 .AddSwaggerConfiguration()
                 .AddRateLimit(builder.Configuration)
