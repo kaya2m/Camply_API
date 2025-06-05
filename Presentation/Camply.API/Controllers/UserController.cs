@@ -76,7 +76,32 @@ namespace Camply.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred while retrieving the user profile" });
             }
         }
-
+        /// <summary>
+        /// Get the profile of a user by username index
+        /// </summary>
+        /// <param name="username">Username</param>
+        /// <param name="limit"> limit</param>
+        /// <returns>Users information</returns>
+        [HttpGet("search-user/{username}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UserProfileResponse>> GetSearchUsers(string username, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                var profile = await _userService.SearchUsersByUsernameAsync(username, limit);
+                return Ok(profile);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error retrieving user with username '{username}'");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred while retrieving the user profile" });
+            }
+        }
         /// <summary>
         /// Get the profile of the currently authenticated user
         /// </summary>

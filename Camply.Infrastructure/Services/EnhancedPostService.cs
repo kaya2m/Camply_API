@@ -504,7 +504,19 @@ namespace Camply.Infrastructure.Services
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null)
             {
-                await _cacheService.SetAsync(cacheKey, user, TimeSpan.FromHours(4));
+                var userDto = new
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Surname = user.Surname,
+                    Username = user.Username,
+                    Email = user.Email,
+                    ProfileImageUrl = user.ProfileImageUrl,
+                    Bio = user.Bio,
+                    CreatedAt = user.CreatedAt,
+                    LastLoginAt = user.LastLoginAt
+                };
+                await _cacheService.SetAsync(cacheKey, userDto, TimeSpan.FromHours(4));
             }
 
             return user;

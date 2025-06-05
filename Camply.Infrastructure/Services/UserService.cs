@@ -94,7 +94,44 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+        public async Task<List<UserSearchResponse>> SearchUsersByUsernameAsync(string searchTerm, int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                    return new List<UserSearchResponse>();
 
+                var lowerSearchTerm = searchTerm.ToLower();
+
+                var users = await _userRepository.FindAsync(u =>
+                    u.Username.ToLower().Contains(lowerSearchTerm));
+
+                var sortedUsers = users
+                    .OrderBy(u => u.Username.ToLower() == lowerSearchTerm ? 0 :
+                             u.Username.ToLower().StartsWith(lowerSearchTerm) ? 1 : 2)
+                    .ThenBy(u => u.Username)
+                    .Take(limit)
+                    .ToList();
+
+                var userSearchResponses = new List<UserSearchResponse>();
+                var imageTasks = sortedUsers.Select(async user => new UserSearchResponse
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Surname = user.Surname,
+                    Username = user.Username,
+                    ProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl)
+                });
+
+                var results = await Task.WhenAll(imageTasks);
+                return results.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error searching users with term '{searchTerm}'");
+                throw;
+            }
+        }
         public async Task<UserProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request)
         {
             try
