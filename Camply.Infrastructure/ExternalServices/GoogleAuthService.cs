@@ -24,7 +24,7 @@ namespace Camply.Infrastructure.ExternalServices
             {
                 var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
                 {
-                    Audience = new[] { _settings.Google.ClientId }
+                    Audience = new[] { _settings.Google.ClientId, _settings.Google.ClientIdWeb }
                 });
 
                 return new GoogleUserInfo

@@ -91,7 +91,7 @@ namespace Camply.API.Controllers
         {
             try
             {
-                request.Provider = provider;
+                request.Provider = provider;    
                 
                 var result = await _authService.SocialLoginAsync(request);
                 

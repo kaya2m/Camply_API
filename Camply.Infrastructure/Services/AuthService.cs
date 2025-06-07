@@ -222,7 +222,7 @@ namespace Camply.Infrastructure.Services
                         BirthDate = user.BirthDate,
                         Username = user.Username,
                         Email = user.Email,
-                        ProfileImageUrl = user.ProfileImageUrl,
+                        ProfileImageUrl =user.ProfileImageUrl,
                         Roles = roleNames
                     }
                 };
