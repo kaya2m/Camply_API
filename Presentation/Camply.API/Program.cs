@@ -9,10 +9,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddAzureRedisCache(builder.Configuration)
+                .AddMachineLearningServices(builder.Configuration)
                 .AddApplicationServices()
                 .AddInfrastructureServices(builder.Configuration)
                  .AddMediaServices(builder.Configuration)
                 .AddJwtAuthentication(builder.Configuration)
+               .AddSessionConfiguration(builder.Configuration)
                 .AddSwaggerConfiguration()
                 .AddRateLimit(builder.Configuration)
                 .AddCorsConfiguration(builder.Configuration);
@@ -43,6 +45,7 @@ app.UseRouting();
 app.UseCors("AllowSpecificOrigins");
 app.UseRateLimiter();
 
+app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseEndpoints(endpoints =>
@@ -52,6 +55,7 @@ app.UseEndpoints(endpoints =>
 
 app.MapHub<ChatHub>("/chatHub");
 await app.UseDataInitializer();
+await app.Services.InitializeMLServicesAsync();
 
 // Initialize blob storage
 using (var scope = app.Services.CreateScope())

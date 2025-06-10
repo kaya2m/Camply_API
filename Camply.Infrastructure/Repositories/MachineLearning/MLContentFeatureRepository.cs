@@ -31,14 +31,14 @@ namespace Camply.Infrastructure.Repositories.MachineLearning
                 .ToListAsync();
         }
 
-        public async Task<bool> UpdateContentFeatureAsync(Guid contentId, string contentType, string featureCategory, string featureVector, float qualityScore)
+        public async Task<bool> UpdateContentFeatureAsync(Guid contentId, string contentType, string featureCategory, string featureVector, double qualityScore)
         {
             var existingFeature = await GetLatestContentFeatureAsync(contentId, contentType, featureCategory);
 
             if (existingFeature != null)
             {
                 existingFeature.FeatureVector = featureVector;
-                existingFeature.QualityScore = qualityScore;
+                existingFeature.QualityScore = ((float)qualityScore);
                 existingFeature.LastModifiedAt = DateTime.UtcNow;
 
                 Update(existingFeature);
@@ -52,7 +52,7 @@ namespace Camply.Infrastructure.Repositories.MachineLearning
                     ContentType = contentType,
                     FeatureCategory = featureCategory,
                     FeatureVector = featureVector,
-                    QualityScore = qualityScore,
+                    QualityScore = ((float)qualityScore),
                     Version = "v1.0",
                     CreatedAt = DateTime.UtcNow
                 });

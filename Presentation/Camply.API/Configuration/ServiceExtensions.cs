@@ -18,12 +18,15 @@ using Camply.Infrastructure.Options;
 using Camply.Infrastructure.Repositories.MachineLearning;
 using Camply.Infrastructure.Repositories.Messages;
 using Camply.Infrastructure.Services;
+using Camply.Infrastructure.Services.BackgroundServices;
+using Camply.Infrastructure.Services.MachineLearning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MongoDB.Driver;
 using StackExchange.Redis;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -115,17 +118,52 @@ namespace Camply.API.Configuration
 
             return services;
         }
-        public static async Task InitializeMLDatabaseAsync(this IServiceProvider serviceProvider)
+        public static IServiceCollection AddMachineLearningServices(this IServiceCollection services, IConfiguration configuration)
+        {
+            // ML Settings
+            services.Configure<MLSettings>(configuration.GetSection("MLSettings"));
+
+            // Add the missing repository registrations
+            services.AddScoped<IMLUserFeatureRepository, MLUserFeatureRepository>();
+            services.AddScoped<IMLContentFeatureRepository, MLContentFeatureRepository>();
+
+            // ML Service interfaces and implementations
+            services.AddScoped<IMLFeedAlgorithmService, MLFeedAlgorithmService>();
+            services.AddScoped<IMLFeatureExtractionService, MLFeatureExtractionService>();
+            services.AddScoped<IMLModelService, MLModelService>();
+            services.AddScoped<IMLModelRepository, MLModelRepository>();
+            services.AddScoped<IMLAnalyticsRepository, MLAnalyticsRepository>();
+            services.AddScoped<IContextAwareFeedService, ContextAwareFeedService>();
+
+            // Background services for ML processing
+            services.AddHostedService<MLFeatureCalculationService>();
+            services.AddHostedService<MLCacheCleanupService>();
+            services.AddHostedService<MLModelTrainingService>();
+
+
+
+            return services;
+        }
+        public static async Task InitializeMLServicesAsync(this IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
 
-            // Initialize PostgreSQL ML tables (if not exists)
-            var dbContext = scope.ServiceProvider.GetRequiredService<CamplyDbContext>();
-            await dbContext.Database.EnsureCreatedAsync();
+            try
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<CamplyDbContext>();
+                await dbContext.Database.EnsureCreatedAsync();
 
-            //// Initialize MongoDB ML collections
-            //var mongoContext = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
-            //await mongoContext.InitializeMLCollectionsAsync();
+                var mongoContext = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
+                await mongoContext.InitializeAsync();
+
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            }
+            catch (Exception ex)
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                logger.LogError(ex, "Error initializing ML services");
+                throw;
+            }
         }
         /// <summary>
         /// Repository ve servis bağımlılıklarının kaydı
@@ -182,14 +220,6 @@ namespace Camply.API.Configuration
            //Chat User Service
               services.AddSingleton<UserPresenceTracker>();
 
-            services.AddScoped<IMLUserFeatureRepository, MLUserFeatureRepository>();
-            services.AddScoped<IMLContentFeatureRepository, MLContentFeatureRepository>();
-            services.AddScoped<IMLModelRepository, MLModelRepository>();
-            services.AddScoped<IMLAnalyticsRepository, MLAnalyticsRepository>();
-
-            //  for ML processing
-            //services.AddHostedService<MLFeatureCalculationService>();
-            //services.AddHostedService<MLCacheCleanupService>();
             return services;
         }
         /// <summary>
@@ -253,7 +283,28 @@ namespace Camply.API.Configuration
 
             return services;
         }
+        public static IServiceCollection AddSessionConfiguration(this IServiceCollection services, IConfiguration configuration)
+        {
+            var azureRedisConnectionString = configuration.GetSection("AzureRedis")["ConnectionString"];
 
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = azureRedisConnectionString;
+                options.InstanceName = "CamplySession";
+            });
+
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+                options.Cookie.Name = ".Camply.Session";
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.Cookie.SameSite = SameSiteMode.Lax; 
+            });
+
+            return services;
+        }
         /// <summary>
         /// Swagger API dokümantasyon yapılandırması
         /// </summary>
@@ -370,8 +421,30 @@ namespace Camply.API.Configuration
 
                     await context.HttpContext.Response.WriteAsJsonAsync(errorResponse, token);
                 };
-            });
+                options.AddFixedWindowLimiter("ml-api", options =>
+                {
+                    options.PermitLimit = 50;
+                    options.Window = TimeSpan.FromMinutes(1);
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    options.QueueLimit = 10;
+                });
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+                options.OnRejected = async (context, token) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    context.HttpContext.Response.ContentType = "application/json";
+
+                    var errorResponse = new
+                    {
+                        error = "Rate limit exceeded. Too many requests.",
+                        retryAfter = "Please wait before making another request."
+                    };
+
+                    await context.HttpContext.Response.WriteAsJsonAsync(errorResponse, token);
+                };
+            });
+          
             return services;
         }
     }
