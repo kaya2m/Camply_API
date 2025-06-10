@@ -1,4 +1,9 @@
-﻿using System;
+﻿using Camply.Domain;
+using Camply.Domain.Auth;
+using Camply.Domain.Common;
+using Camply.Domain.MachineLearning;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -8,10 +13,6 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using Camply.Domain;
-using Camply.Domain.Auth;
-using Camply.Domain.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace Camply.Infrastructure.Data
 {
@@ -48,6 +49,14 @@ namespace Camply.Infrastructure.Data
         public DbSet<Location> Locations { get; set; }
         public DbSet<LocationReview> LocationReviews { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        // ML DbSets
+        public DbSet<MLUserFeature> MLUserFeatures { get; set; }
+        public DbSet<MLContentFeature> MLContentFeatures { get; set; }
+        public DbSet<MLModel> MLModels { get; set; }
+        public DbSet<MLTrainingJob> MLTrainingJobs { get; set; }
+        public DbSet<MLExperiment> MLExperiments { get; set; }
+        public DbSet<MLUserExperiment> MLUserExperiments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -2,6 +2,7 @@
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
 using Camply.Application.Common.Interfaces;
+using Camply.Application.MachineLearning.Interfaces;
 using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.Interfaces;
 using Camply.Application.Messages.Interfaces.Services;
@@ -14,6 +15,7 @@ using Camply.Infrastructure.Data;
 using Camply.Infrastructure.Data.Repositories;
 using Camply.Infrastructure.ExternalServices;
 using Camply.Infrastructure.Options;
+using Camply.Infrastructure.Repositories.MachineLearning;
 using Camply.Infrastructure.Repositories.Messages;
 using Camply.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -113,6 +115,18 @@ namespace Camply.API.Configuration
 
             return services;
         }
+        public static async Task InitializeMLDatabaseAsync(this IServiceProvider serviceProvider)
+        {
+            using var scope = serviceProvider.CreateScope();
+
+            // Initialize PostgreSQL ML tables (if not exists)
+            var dbContext = scope.ServiceProvider.GetRequiredService<CamplyDbContext>();
+            await dbContext.Database.EnsureCreatedAsync();
+
+            //// Initialize MongoDB ML collections
+            //var mongoContext = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
+            //await mongoContext.InitializeMLCollectionsAsync();
+        }
         /// <summary>
         /// Repository ve servis bağımlılıklarının kaydı
         /// </summary>
@@ -164,8 +178,18 @@ namespace Camply.API.Configuration
             services.Configure<MongoDbSettings>(configuration.GetSection("MongoDbSettings"));
             services.AddSingleton<MongoDbContext>();
 
+
            //Chat User Service
               services.AddSingleton<UserPresenceTracker>();
+
+            services.AddScoped<IMLUserFeatureRepository, MLUserFeatureRepository>();
+            services.AddScoped<IMLContentFeatureRepository, MLContentFeatureRepository>();
+            services.AddScoped<IMLModelRepository, MLModelRepository>();
+            services.AddScoped<IMLAnalyticsRepository, MLAnalyticsRepository>();
+
+            //  for ML processing
+            //services.AddHostedService<MLFeatureCalculationService>();
+            //services.AddHostedService<MLCacheCleanupService>();
             return services;
         }
         /// <summary>

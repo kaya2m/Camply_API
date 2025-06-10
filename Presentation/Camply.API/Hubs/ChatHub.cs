@@ -148,8 +148,6 @@ namespace Camply.API.Hubs
                 await Clients.Group($"conversation_{messageDto.ConversationId}")
                     .SendAsync("ReceiveMessage", message);
 
-                // Konuşmada olup şu anda bağlı olmayan kullanıcılara bildirim gönder
-                // Bu, her bir kullanıcının kişisel grubuna mesaj göndererek yapılır
                 var conversation = await _conversationService.GetConversationByIdAsync(messageDto.ConversationId, userId);
                 foreach (var participant in conversation.Participants)
                 {
@@ -192,7 +190,6 @@ namespace Camply.API.Hubs
                 var message = await _messageService.GetMessageByIdAsync(messageId, userId);
                 if (message != null)
                 {
-                    // Konuşma grubuna bilgiyi gönder
                     await Clients.OthersInGroup($"conversation_{message.ConversationId}")
                         .SendAsync("MessageRead", messageId, userId, DateTime.UtcNow);
                 }
