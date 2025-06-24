@@ -145,7 +145,7 @@ namespace Camply.Infrastructure.Services
                 if (!string.IsNullOrEmpty(request.Username) && user.Username != request.Username)
                 {
                     var existingUser = await _userRepository.SingleOrDefaultAsync(u => u.Username == request.Username);
-                    if (existingUser != null)
+                    if (existingUser != null && user.Username != existingUser.Username)
                     {
                         throw new InvalidOperationException("Username is already taken");
                     }
@@ -168,7 +168,7 @@ namespace Camply.Infrastructure.Services
 
                 if (request.BirthDate != default && user.BirthDate != request.BirthDate)
                 {
-                    user.BirthDate = request.BirthDate;
+                    user.BirthDate = ConvertToUtc(request.BirthDate);
                 }
 
                 user.LastModifiedAt = DateTime.UtcNow;
@@ -806,8 +806,16 @@ namespace Camply.Infrastructure.Services
                 return profileImageUrl;
             }
         }
+        private static DateTime? ConvertToUtc(DateTime? dateTime)
+        {
+            if (!dateTime.HasValue)
+                return null;
 
-    
+            return dateTime.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc)
+                : dateTime.Value.ToUniversalTime();
+        }
+
         #endregion
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Camply.Application.Common.Interfaces;
 using Camply.Application.Common.Models;
+using Camply.Application.Media.Interfaces;
 using Camply.Application.Posts.DTOs;
 using Camply.Application.Posts.Interfaces;
 using Camply.Domain;
@@ -30,6 +31,7 @@ namespace Camply.Infrastructure.Services
         private readonly IRepository<Location> _locationRepository;
         private readonly ICacheService _cacheService; 
         private readonly ILogger<EnhancedPostService> _logger;
+        private readonly IMediaService _mediaService;
 
         private const string POST_CACHE_KEY = "post:{0}";
         private const string POSTS_CACHE_KEY = "posts:{0}:{1}:{2}:{3}"; // page:size:sort:userId
@@ -53,7 +55,8 @@ namespace Camply.Infrastructure.Services
             IRepository<Follow> followRepository,
             IRepository<Location> locationRepository,
             ICacheService cacheService,
-            ILogger<EnhancedPostService> logger)
+            ILogger<EnhancedPostService> logger,
+            IMediaService mediaService)
         {
             _postRepository = postRepository;
             _userRepository = userRepository;
@@ -66,6 +69,7 @@ namespace Camply.Infrastructure.Services
             _locationRepository = locationRepository;
             _cacheService = cacheService;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<PagedResponse<PostSummaryResponse>> GetPostsAsync(
@@ -159,7 +163,6 @@ namespace Camply.Infrastructure.Services
                     TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
                 };
 
-                // Cache for 10 minutes
                 await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
                 return result;
             }
@@ -183,9 +186,8 @@ namespace Camply.Infrastructure.Services
 
             try
             {
-                // Get following list from cache
-                var followingIds = await GetFollowingIdsFromCacheAsync(userId);
-                followingIds.Add(userId); // Include user's own posts
+                var followingIds = await GetFollowingIdsFromCacheAsync(userId) ?? new List<Guid>();
+                followingIds.Add(userId);
 
                 var allPostsQuery = await _postRepository.FindAsync(p => followingIds.Contains(p.UserId) && p.Status == PostStatus.Active);
                 var posts = allPostsQuery.OrderByDescending(p => p.CreatedAt).ToList();
@@ -207,7 +209,6 @@ namespace Camply.Infrastructure.Services
                     TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
                 };
 
-                // Cache feed for 15 minutes (feeds change frequently)
                 await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(15));
                 return result;
             }
@@ -526,18 +527,22 @@ namespace Camply.Infrastructure.Services
         {
             var cacheKey = string.Format(FOLLOWING_CACHE_KEY, userId);
             var cachedFollowing = await _cacheService.GetAsync<List<Guid>>(cacheKey);
-
             if (cachedFollowing != null)
             {
                 return cachedFollowing;
             }
 
-            var followingQuery = await _followRepository.FindAsync(f => f.FollowerId == userId);
-            var followingIds = followingQuery.Select(f => f.FollowedId).ToList();
-
-            await _cacheService.SetAsync(cacheKey, followingIds, TimeSpan.FromHours(1));
-
-            return followingIds;
+            try
+            {
+                var followingQuery = await _followRepository.FindAsync(f => f.FollowerId == userId);
+                var followingIds = followingQuery?.Select(f => f.FollowedId).ToList() ?? new List<Guid>();
+                await _cacheService.SetAsync(cacheKey, followingIds, TimeSpan.FromHours(1));
+                return followingIds;
+            }
+            catch (Exception ex)
+            {
+                return new List<Guid>(); 
+            }
         }
 
         private async Task<int> GetLikesCountFromCacheAsync(Guid postId)
@@ -630,7 +635,6 @@ namespace Camply.Infrastructure.Services
 
         private async Task<PostSummaryResponse> MapPostToSummaryResponseWithCacheAsync(Post post, Guid? currentUserId = null)
         {
-            // Use cache-optimized methods
             var user = await GetUserFromCacheAsync(post.UserId);
             var likesCount = await GetLikesCountFromCacheAsync(post.Id);
             var commentsCount = await GetCommentsCountFromCacheAsync(post.Id);
@@ -641,11 +645,9 @@ namespace Camply.Infrastructure.Services
                 isLiked = await IsPostLikedByUserFromCacheAsync(post.Id, currentUserId.Value);
             }
 
-            // Other mapping logic remains the same...
             var mediaQuery = await _mediaRepository.FindAsync(m => m.EntityId == post.Id && m.EntityType == "Post");
             var media = mediaQuery.ToList();
 
-            // Tag mapping with cache
             var tagIds = (await _postTagRepository.FindAsync(pt => pt.PostId == post.Id))
                 .Select(pt => pt.TagId).ToList();
             var tags = new List<TagResponse>();
@@ -697,7 +699,7 @@ namespace Camply.Infrastructure.Services
                 {
                     Id = user.Id,
                     Username = user.Username,
-                    ProfileImageUrl = user.ProfileImageUrl
+                    ProfileImageUrl = await _mediaService.GenerateSecureUrlAsync( user.ProfileImageUrl)
                 },
                 Content = post.Content,
                 Media = media.Select(m => new MediaSummaryResponse
@@ -879,7 +881,6 @@ namespace Camply.Infrastructure.Services
 
         #endregion
 
-        // REMAINING METHODS WITH CACHE INTEGRATION
         public async Task<PagedResponse<PostSummaryResponse>> GetPostsByLocationAsync(
             Guid locationId, int pageNumber, int pageSize, Guid? currentUserId = null)
         {
@@ -919,7 +920,6 @@ namespace Camply.Infrastructure.Services
                     TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
                 };
 
-                // Cache for 30 minutes
                 await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(30));
                 return result;
             }

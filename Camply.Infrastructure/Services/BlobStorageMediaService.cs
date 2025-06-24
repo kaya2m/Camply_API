@@ -16,6 +16,7 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
+using System.Text;
 
 namespace Camply.Infrastructure.Services
 {
@@ -93,10 +94,11 @@ namespace Camply.Infrastructure.Services
                 {
                     ContentType = file.ContentType
                 };
+                var sanitizedOriginalFileName = SanitizeForAscii(file.FileName);
 
                 var metadata = new Dictionary<string, string>
                 {
-                    ["OriginalFileName"] = file.FileName,
+                    ["OriginalFileName"] = sanitizedOriginalFileName,
                     ["UploadedBy"] = userId.ToString(),
                     ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
                     ["MediaType"] = mediaType.ToString()
@@ -601,7 +603,6 @@ namespace Camply.Infrastructure.Services
                         var mediaType = DetermineMediaType(fileExtension);
                         var fileName = GenerateUniqueFileName(fileExtension);
 
-                        // Use temporary folder for unattached media
                         var folderPath = $"temporary/{userId}/{DateTime.UtcNow:yyyy/MM/dd}";
                         var blobName = $"{folderPath}/{fileName}";
 
@@ -618,14 +619,16 @@ namespace Camply.Infrastructure.Services
                             ContentType = file.ContentType
                         };
 
+                        var sanitizedOriginalFileName = SanitizeForAscii(file.FileName);
+
                         var metadata = new Dictionary<string, string>
                         {
-                            ["OriginalFileName"] = file.FileName,
+                            ["OriginalFileName"] = sanitizedOriginalFileName,
                             ["UploadedBy"] = userId.ToString(),
                             ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
                             ["MediaType"] = mediaType.ToString(),
                             ["IsTemporary"] = "true",
-                            ["ExpiresAt"] = DateTime.UtcNow.AddHours(24).ToString("O") // 24 hour expiry
+                            ["ExpiresAt"] = DateTime.UtcNow.AddHours(24).ToString("O")
                         };
 
                         var uploadOptions = new BlobUploadOptions
@@ -646,14 +649,13 @@ namespace Camply.Infrastructure.Services
                             FileSize = file.Length,
                             Type = mediaType,
                             Status = MediaStatus.Processing,
-                            EntityId = null, // Temporary - not attached to any entity yet
+                            EntityId = null,
                             EntityType = null,
                             CreatedAt = DateTime.UtcNow,
                             CreatedBy = userId,
-                            Metadata = "{\"isTemporary\": true, \"expiresAt\": \"" + DateTime.UtcNow.AddHours(24).ToString("O") + "\"}"
+                            Metadata = "{\"isTemporary\": true, \"expiresAt\": \"" + DateTime.UtcNow.AddHours(24).ToString("O") + "\", \"originalFileName\": \"" + EscapeJsonString(file.FileName) + "\"}"
                         };
 
-                        // Process image variants if it's an image
                         if (mediaType == MediaType.Image)
                         {
                             try
@@ -696,7 +698,7 @@ namespace Camply.Infrastructure.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error uploading temporary file: {FileName}", file.FileName);
+                        _logger.LogError(ex, "Error uploading temporary file: {FileName}", SanitizeForLogging(file.FileName));
                         throw;
                     }
                 }
@@ -893,7 +895,6 @@ namespace Camply.Infrastructure.Services
             }
         }
         #region Helper Methods
-            // SAS token ile güvenli URL oluşturma
         private string GenerateSecureUrl(string blobUrl)
         {
             try
@@ -907,7 +908,7 @@ namespace Camply.Infrastructure.Services
                     {
                         BlobContainerName = _settings.ContainerName,
                         BlobName = blobName,
-                        Resource = "b", // blob
+                        Resource = "b",
                         ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
                     };
                     sasBuilder.SetPermissions(BlobSasPermissions.Read);
@@ -963,19 +964,6 @@ namespace Camply.Infrastructure.Services
             return $"{Guid.NewGuid()}{extension}";
         }
 
-        private async Task<string> GetOptimizedUrl(string blobUrl, int? width = null, int? height = null, string format = null)
-        {
-            try
-            {
-                return await _cloudflareService.GetOptimizedImageUrl(blobUrl, width, height, format);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get optimized URL for {BlobUrl}, returning original", blobUrl);
-                return blobUrl;
-            }
-        }
-
         private string ExtractBlobNameFromUrl(string url)
         {
             try
@@ -999,7 +987,6 @@ namespace Camply.Infrastructure.Services
                 var originalWidth = image.Width;
                 var originalHeight = image.Height;
 
-                // Create thumbnail (300x300)
                 var thumbnailSize = 300;
                 using var thumbnail = image.Clone(x => x.Resize(new ResizeOptions
                 {
@@ -1011,7 +998,6 @@ namespace Camply.Infrastructure.Services
                 var originalFileName = Path.GetFileNameWithoutExtension(originalBlobName);
                 var thumbnailBlobName = $"{folderPath}/thumbnails/{originalFileName}_thumb.jpg";
 
-                // Upload thumbnail
                 using var thumbnailStream = new MemoryStream();
                 await thumbnail.SaveAsJpegAsync(thumbnailStream, new JpegEncoder { Quality = 85 });
                 thumbnailStream.Position = 0;
@@ -1058,6 +1044,43 @@ namespace Camply.Infrastructure.Services
                 _logger.LogError(ex, "Error generating secure URL for blob: {BlobUrl}", blobUrl);
                 return blobUrl;
             }
+        }
+        private static string SanitizeForAscii(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var bytes = Encoding.ASCII.GetBytes(input);
+            var asciiString = Encoding.ASCII.GetString(bytes);
+
+            return asciiString.Replace('?', '_');
+        }
+
+        private static string SanitizeForLogging(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+                return fileName;
+
+            try
+            {
+                return SanitizeForAscii(fileName);
+            }
+            catch
+            {
+                return "[FILENAME_WITH_SPECIAL_CHARS]";
+            }
+        }
+
+        private static string EscapeJsonString(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            return input.Replace("\\", "\\\\")
+                        .Replace("\"", "\\\"")
+                        .Replace("\n", "\\n")
+                        .Replace("\r", "\\r")
+                        .Replace("\t", "\\t");
         }
         #endregion
     }

@@ -1,5 +1,4 @@
-﻿using Camply.Domain.Analytics;
-using Camply.Domain.Messages;
+﻿using Camply.Domain.Messages;
 using Camply.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
@@ -28,24 +27,7 @@ namespace Camply.Infrastructure.Data
 
         public IMongoCollection<Reaction> Reactions =>
             _database.GetCollection<Reaction>("Reactions");
-        public IMongoCollection<UserInteractionDocument> UserInteractions =>
-           _database.GetCollection<UserInteractionDocument>("UserInteractions");
-
-        public IMongoCollection<UserInterestDocument> UserInterests =>
-            _database.GetCollection<UserInterestDocument>("UserInterests");
-
-        public IMongoCollection<FeedCacheDocument> FeedCache =>
-            _database.GetCollection<FeedCacheDocument>("FeedCache");
-
-        public IMongoCollection<ModelPredictionDocument> ModelPredictions =>
-            _database.GetCollection<ModelPredictionDocument>("ModelPredictions");
-
-        public IMongoCollection<AlgorithmMetricsDocument> AlgorithmMetrics =>
-            _database.GetCollection<AlgorithmMetricsDocument>("AlgorithmMetrics");
-
-        public IMongoCollection<FeedImpressionDocument> FeedImpressions =>
-            _database.GetCollection<FeedImpressionDocument>("FeedImpressions");
-
+       
         public async Task<bool> CheckConnectionAsync()
         {
             try
@@ -174,96 +156,6 @@ namespace Camply.Infrastructure.Data
                     );
                 }
             }
-
-            await UserInteractions.Indexes.CreateManyAsync(new[]
-          {
-                new CreateIndexModel<UserInteractionDocument>(
-                    Builders<UserInteractionDocument>.IndexKeys
-                        .Ascending(x => x.UserId)
-                        .Descending(x => x.CreatedAt),
-                    new CreateIndexOptions { Name = "ix_user_interactions_user_time", Background = true }),
-
-                new CreateIndexModel<UserInteractionDocument>(
-                    Builders<UserInteractionDocument>.IndexKeys
-                        .Ascending(x => x.ContentId)
-                        .Ascending(x => x.ContentType),
-                    new CreateIndexOptions { Name = "ix_user_interactions_content", Background = true }),
-
-                new CreateIndexModel<UserInteractionDocument>(
-                    Builders<UserInteractionDocument>.IndexKeys.Ascending(x => x.InteractionType),
-                    new CreateIndexOptions { Name = "ix_user_interactions_type", Background = true }),
-
-                new CreateIndexModel<UserInteractionDocument>(
-                    Builders<UserInteractionDocument>.IndexKeys.Descending(x => x.CreatedAt),
-                    new CreateIndexOptions { Name = "ix_user_interactions_time", Background = true })
-            });
-
-            // UserInterests indexes
-            await UserInterests.Indexes.CreateOneAsync(
-                new CreateIndexModel<UserInterestDocument>(
-                    Builders<UserInterestDocument>.IndexKeys.Ascending(x => x.UserId),
-                    new CreateIndexOptions { Name = "ix_user_interests_user", Background = true, Unique = true }));
-
-            // FeedCache indexes
-            await FeedCache.Indexes.CreateManyAsync(new[]
-            {
-                new CreateIndexModel<FeedCacheDocument>(
-                    Builders<FeedCacheDocument>.IndexKeys
-                        .Ascending(x => x.UserId)
-                        .Ascending(x => x.FeedType)
-                        .Ascending(x => x.Page),
-                    new CreateIndexOptions { Name = "ix_feed_cache_user_type_page", Background = true }),
-
-                new CreateIndexModel<FeedCacheDocument>(
-                    Builders<FeedCacheDocument>.IndexKeys.Ascending(x => x.ExpiresAt),
-                    new CreateIndexOptions { Name = "ix_feed_cache_expires", Background = true, ExpireAfter = TimeSpan.Zero })
-            });
-
-            // ModelPredictions indexes
-            await ModelPredictions.Indexes.CreateManyAsync(new[]
-            {
-                new CreateIndexModel<ModelPredictionDocument>(
-                    Builders<ModelPredictionDocument>.IndexKeys
-                        .Ascending(x => x.UserId)
-                        .Ascending(x => x.ContentId),
-                    new CreateIndexOptions { Name = "ix_predictions_user_content", Background = true }),
-
-                new CreateIndexModel<ModelPredictionDocument>(
-                    Builders<ModelPredictionDocument>.IndexKeys
-                        .Ascending(x => x.ModelName)
-                        .Ascending(x => x.ModelVersion),
-                    new CreateIndexOptions { Name = "ix_predictions_model", Background = true }),
-
-                new CreateIndexModel<ModelPredictionDocument>(
-                    Builders<ModelPredictionDocument>.IndexKeys.Descending(x => x.CreatedAt),
-                    new CreateIndexOptions { Name = "ix_predictions_time", Background = true })
-            });
-
-            // AlgorithmMetrics indexes
-            await AlgorithmMetrics.Indexes.CreateManyAsync(new[]
-            {
-                new CreateIndexModel<AlgorithmMetricsDocument>(
-                    Builders<AlgorithmMetricsDocument>.IndexKeys
-                        .Ascending(x => x.MetricType)
-                        .Descending(x => x.Timestamp),
-                    new CreateIndexOptions { Name = "ix_metrics_type_time", Background = true }),
-
-                new CreateIndexModel<AlgorithmMetricsDocument>(
-                    Builders<AlgorithmMetricsDocument>.IndexKeys.Ascending(x => x.AlgorithmVersion),
-                    new CreateIndexOptions { Name = "ix_metrics_version", Background = true })
-            });
-
-            // FeedImpressions indexes
-            await FeedImpressions.Indexes.CreateManyAsync(new[]
-            {
-                new CreateIndexModel<FeedImpressionDocument>(
-                    Builders<FeedImpressionDocument>.IndexKeys.Ascending(x => x.PostId),
-                    new CreateIndexOptions { Name = "ix_impressions_post", Background = true }),
-
-                new CreateIndexModel<FeedImpressionDocument>(
-                    Builders<FeedImpressionDocument>.IndexKeys.Ascending(x => x.AlgorithmVersion),
-                    new CreateIndexOptions { Name = "ix_impressions_algorithm", Background = true })
-            });
         }
     }
 }

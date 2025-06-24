@@ -9,8 +9,10 @@ namespace Camply.Application.Users.DTOs
         [StringLength(50, MinimumLength = 3)]
         public string Surname { get; set; }
 
-        public DateTime BirthDate { get; set; }
+        public DateTime? BirthDate { get; set; }
+
         [StringLength(50, MinimumLength = 3)]
+        [Required]
         public string Username { get; set; }
 
         [StringLength(500)]

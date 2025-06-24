@@ -2,7 +2,6 @@
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
 using Camply.Application.Common.Interfaces;
-using Camply.Application.MachineLearning.Interfaces;
 using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.Interfaces;
 using Camply.Application.Messages.Interfaces.Services;
@@ -15,11 +14,8 @@ using Camply.Infrastructure.Data;
 using Camply.Infrastructure.Data.Repositories;
 using Camply.Infrastructure.ExternalServices;
 using Camply.Infrastructure.Options;
-using Camply.Infrastructure.Repositories.MachineLearning;
 using Camply.Infrastructure.Repositories.Messages;
 using Camply.Infrastructure.Services;
-using Camply.Infrastructure.Services.BackgroundServices;
-using Camply.Infrastructure.Services.MachineLearning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -115,32 +111,6 @@ namespace Camply.API.Configuration
 
             // Cache service
             services.AddSingleton<ICacheService, AzureRedisCacheService>();
-
-            return services;
-        }
-        public static IServiceCollection AddMachineLearningServices(this IServiceCollection services, IConfiguration configuration)
-        {
-            // ML Settings
-            services.Configure<MLSettings>(configuration.GetSection("MLSettings"));
-
-            // Add the missing repository registrations
-            services.AddScoped<IMLUserFeatureRepository, MLUserFeatureRepository>();
-            services.AddScoped<IMLContentFeatureRepository, MLContentFeatureRepository>();
-
-            // ML Service interfaces and implementations
-            services.AddScoped<IMLFeedAlgorithmService, MLFeedAlgorithmService>();
-            services.AddScoped<IMLFeatureExtractionService, MLFeatureExtractionService>();
-            services.AddScoped<IMLModelService, MLModelService>();
-            services.AddScoped<IMLModelRepository, MLModelRepository>();
-            services.AddScoped<IMLAnalyticsRepository, MLAnalyticsRepository>();
-            services.AddScoped<IContextAwareFeedService, ContextAwareFeedService>();
-
-            // Background services for ML processing
-            services.AddHostedService<MLFeatureCalculationService>();
-            services.AddHostedService<MLCacheCleanupService>();
-            services.AddHostedService<MLModelTrainingService>();
-
-
 
             return services;
         }
@@ -325,7 +295,6 @@ namespace Camply.API.Configuration
                     }
                 });
 
-                // JWT Authentication için Swagger konfigürasyonu
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -383,7 +352,7 @@ namespace Camply.API.Configuration
             {
                 options.AddFixedWindowLimiter("fixed", options =>
                 {
-                    options.PermitLimit = 100;
+                    options.PermitLimit = 20;
                     options.Window = TimeSpan.FromSeconds(30);
                     options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                     options.QueueLimit = 0;

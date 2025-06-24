@@ -9,7 +9,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
 builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddAzureRedisCache(builder.Configuration)
-                .AddMachineLearningServices(builder.Configuration)
                 .AddApplicationServices()
                 .AddInfrastructureServices(builder.Configuration)
                  .AddMediaServices(builder.Configuration)

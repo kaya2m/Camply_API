@@ -139,7 +139,7 @@ namespace Camply.API.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<MediaUploadResponse>> UploadProfilePicture(
             IFormFile file,
-            [FromForm] string description = "Profile picture")
+            [FromForm] string? description = "Profile picture")
         {
             try
             {
