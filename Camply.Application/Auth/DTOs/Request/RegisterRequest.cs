@@ -15,6 +15,16 @@ namespace Camply.Application.Auth.DTOs.Request
         public string Username { get; set; }
 
         [Required]
+        [StringLength(50, MinimumLength = 3, ErrorMessage = "Ad 3-50 karakter arasında olmalıdır.")]
+        [RegularExpression("^[a-zA-ZçÇğĞıİöÖşŞüÜ]+$", ErrorMessage = "Ad sadece İngilizce veya Türkçe harfler içerebilir.")]
+        public string Name { get; set; }
+
+        [Required]
+        [StringLength(50, MinimumLength = 2, ErrorMessage = "Soyad 2-50 karakter arasında olmalıdır.")]
+        [RegularExpression("^[a-zA-ZçÇğĞıİöÖşŞüÜ]+$", ErrorMessage = "Ad sadece İngilizce veya Türkçe harfler içerebilir.")]
+        public string Surname { get; set; }
+
+        [Required]
         [EmailAddress]
         public string Email { get; set; }
 

@@ -2,12 +2,16 @@
 using Camply.Application.Auth.DTOs.Response;
 using Camply.Application.Auth.Interfaces;
 using Camply.Application.Auth.Services;
+using Camply.Application.Common.Interfaces;
 using Camply.Domain.Auth;
 using Camply.Domain.Enums;
 using Camply.Domain.Repositories;
 using Camply.Infrastructure.ExternalServices;
+using Camply.Infrastructure.Options;
+using MailKit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Camply.Infrastructure.Services
 {
@@ -21,9 +25,11 @@ namespace Camply.Infrastructure.Services
         private readonly GoogleAuthService _googleAuthService;
         private readonly FacebookAuthService _facebookAuthService;
         private readonly TokenService _tokenService;
+        private readonly IEmailService _mailService;
+        private readonly ICodeBuilderService _codeBuilder;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuthService> _logger;
-
+        private readonly CodeSettings _codeSettings;
         public AuthService(
             IRepository<User> userRepository,
             IRepository<Role> roleRepository,
@@ -34,7 +40,10 @@ namespace Camply.Infrastructure.Services
             IHttpContextAccessor httpContextAccessor,
             ILogger<AuthService> logger,
             GoogleAuthService googleAuthService,
-            FacebookAuthService facebookAuthService)
+            FacebookAuthService facebookAuthService,
+            IEmailService mailService,
+            ICodeBuilderService codeBuilder,
+            IOptions<CodeSettings> codeSettings)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
@@ -46,6 +55,9 @@ namespace Camply.Infrastructure.Services
             _logger = logger;
             _googleAuthService = googleAuthService;
             _facebookAuthService = facebookAuthService;
+            _mailService = mailService;
+            _codeBuilder = codeBuilder;
+            _codeSettings = codeSettings.Value;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -80,15 +92,21 @@ namespace Camply.Infrastructure.Services
                         Message = "Username already taken"
                     };
                 }
+                string verificationCode = _codeBuilder.GenerateSixDigitCode();
 
                 var newUser = new User
                 {
                     Id = Guid.NewGuid(),
+                    Name = request.Name,
+                    Surname = request.Surname,
                     Username = request.Username,
                     Email = request.Email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Status = UserStatus.Active,
-                    IsEmailVerified = false
+                    IsEmailVerified = false,
+                    EmailVerificationCode = verificationCode,
+                    EmailVerificationExpiry = DateTime.UtcNow.AddMinutes(_codeSettings.CodeExpirationMinutes),
+                    LastModifiedAt = DateTime.UtcNow
                 };
 
                 await _userRepository.AddAsync(newUser);
@@ -105,7 +123,6 @@ namespace Camply.Infrastructure.Services
                     await _userRoleRepository.SaveChangesAsync();
                 }
 
-                // Generate tokens
                 string accessToken = _tokenService.GenerateAccessToken(newUser, new List<string> { "User" });
                 string ipAddress = _httpContextAccessor.HttpContext.Connection.RemoteIpAddress.ToString();
                 var refreshToken = _tokenService.GenerateRefreshToken(ipAddress);
@@ -113,6 +130,11 @@ namespace Camply.Infrastructure.Services
 
                 await _refreshTokenRepository.AddAsync(refreshToken);
                 await _refreshTokenRepository.SaveChangesAsync();
+
+                var emailResult = await _mailService.SendEmailVerificationAsync(
+                  newUser.Email,
+                  newUser.Username,
+                  verificationCode);
 
                 return new AuthResponse
                 {
@@ -125,6 +147,8 @@ namespace Camply.Infrastructure.Services
                     {
                         Id = newUser.Id,
                         Username = newUser.Username,
+                        Name = newUser.Name,
+                        Surname = newUser.Surname,
                         Email = newUser.Email,
                         ProfileImageUrl = newUser.ProfileImageUrl,
                         Roles = new List<string> { "User" }

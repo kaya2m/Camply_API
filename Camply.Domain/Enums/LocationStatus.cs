@@ -2,9 +2,10 @@
 {
     public enum LocationStatus
         {
-            Pending = 0,
-            Active = 1,
-            Archived = 2,
-            Rejected = 3
-        }
+        Pending = 0,         // Onay bekliyor
+        Active = 1,          // Onaylı ve aktif
+        Rejected = 2,        // Reddedildi
+        Suspended = 3,       // Askıya alındı
+        Archived = 4         // Arşivlendi
+    }
 }

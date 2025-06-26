@@ -82,10 +82,10 @@ namespace Camply.API.Controllers
         /// <param name="username">Username</param>
         /// <param name="limit"> limit</param>
         /// <returns>Users information</returns>
-        [HttpGet("search-user/{username}")]
+        [HttpGet("search-user")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<UserProfileResponse>> GetSearchUsers(string username, [FromQuery] int limit = 10)
+        public async Task<ActionResult<UserProfileResponse>> GetSearchUsers([FromQuery] string username, [FromQuery] int limit = 10)
         {
             try
             {
