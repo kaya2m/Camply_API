@@ -666,14 +666,56 @@ namespace Camply.API.Controllers
 
         #endregion
    
-     /// <summary>
+        /// <summary>
         /// Step 1: Upload media files temporarily
         /// </summary>
-        [HttpPost("upload/temporary")]
+        [HttpPost("upload/post")]
         [ProducesResponseType(typeof(List<MediaUploadResponse>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<List<MediaUploadResponse>>> UploadTemporaryMedia([FromForm] List<IFormFile> files)
+        public async Task<ActionResult<List<MediaUploadResponse>>> UploadPostMedia([FromForm] List<IFormFile> files)
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (files == null || files.Count == 0)
+                {
+                    return BadRequest(new { message = "No files provided" });
+                }
+
+                _logger.LogInformation("Post media upload request from user {UserId}, file count: {Count}",
+                    userId.Value, files.Count);
+
+                var uploadedMedia = await _mediaService.UploadPostMediaAsync(userId.Value, files);
+
+                return CreatedAtAction(nameof(GetMediaById),
+                    new { id = uploadedMedia.First().Id }, uploadedMedia);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading Post media");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while uploading media" });
+            }
+        }
+
+        /// <summary>
+        /// Step 1: Upload media files 
+        /// </summary>
+        [HttpPost("upload/location")]
+        [ProducesResponseType(typeof(List<MediaUploadResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<List<MediaUploadResponse>>> UploadLocationMediaAsync([FromForm] List<IFormFile> files)
         {
             try
             {
@@ -691,7 +733,7 @@ namespace Camply.API.Controllers
                 _logger.LogInformation("Temporary media upload request from user {UserId}, file count: {Count}",
                     userId.Value, files.Count);
 
-                var uploadedMedia = await _mediaService.UploadTemporaryMediaAsync(userId.Value, files);
+                var uploadedMedia = await _mediaService.UploadLocationMediaAsync(userId.Value, files);
 
                 return CreatedAtAction(nameof(GetMediaById),
                     new { id = uploadedMedia.First().Id }, uploadedMedia);
@@ -707,7 +749,6 @@ namespace Camply.API.Controllers
                     new { message = "An error occurred while uploading media" });
             }
         }
-
         /// <summary>
         /// Get user's temporary media (uploaded but not attached to posts)
         /// </summary>

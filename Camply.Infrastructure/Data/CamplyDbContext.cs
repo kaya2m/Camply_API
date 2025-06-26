@@ -47,8 +47,9 @@ namespace Camply.Infrastructure.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<LocationReview> LocationReviews { get; set; }
+        public DbSet<ReviewHelpful> ReviewHelpfuls { get; set; }
+        public DbSet<LocationBookmark> LocationBookmarks { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -1246,13 +1246,13 @@ namespace Camply.Infrastructure.Services
             }
 
             // Get location
-            LocationSummaryResponse location = null;
+            BlogLocationSummaryResponse location = null;
             if (blog.LocationId.HasValue)
             {
                 var locationEntity = await _locationRepository.GetByIdAsync(blog.LocationId.Value);
                 if (locationEntity != null)
                 {
-                    location = new LocationSummaryResponse
+                    location = new BlogLocationSummaryResponse
                     {
                         Id = locationEntity.Id,
                         Name = locationEntity.Name,
@@ -1263,7 +1263,7 @@ namespace Camply.Infrastructure.Services
                 }
                 else if (!string.IsNullOrEmpty(blog.LocationName))
                 {
-                    location = new LocationSummaryResponse
+                    location = new BlogLocationSummaryResponse
                     {
                         Id = null,
                         Name = blog.LocationName,

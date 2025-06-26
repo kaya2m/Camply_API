@@ -440,7 +440,6 @@ namespace Camply.Infrastructure.Services
                 if (media.CreatedBy != userId)
                     throw new UnauthorizedAccessException("You are not authorized to delete this media");
 
-                // Delete from blob storage
                 var blobName = ExtractBlobNameFromUrl(media.Url);
                 var blobClient = _containerClient.GetBlobClient(blobName);
 
@@ -450,7 +449,6 @@ namespace Camply.Infrastructure.Services
                     _logger.LogInformation("Successfully deleted blob: {BlobName}", blobName);
                 }
 
-                // Delete thumbnail if exists
                 if (!string.IsNullOrEmpty(media.ThumbnailUrl))
                 {
                     var thumbnailBlobName = ExtractBlobNameFromUrl(media.ThumbnailUrl);
@@ -574,7 +572,7 @@ namespace Camply.Infrastructure.Services
             }
 
         }
-        public async Task<List<MediaUploadResponse>> UploadTemporaryMediaAsync(Guid userId, List<IFormFile> files)
+        public async Task<List<MediaUploadResponse>> UploadPostMediaAsync(Guid userId, List<IFormFile> files)
         {
             try
             {
@@ -603,7 +601,7 @@ namespace Camply.Infrastructure.Services
                         var mediaType = DetermineMediaType(fileExtension);
                         var fileName = GenerateUniqueFileName(fileExtension);
 
-                        var folderPath = $"temporary/{userId}/{DateTime.UtcNow:yyyy/MM/dd}";
+                        var folderPath = $"post/{userId}/{DateTime.UtcNow:yyyy/MM/dd}";
                         var blobName = $"{folderPath}/{fileName}";
 
                         _logger.LogInformation("Uploading temporary file to blob: {BlobName}", blobName);
@@ -650,7 +648,7 @@ namespace Camply.Infrastructure.Services
                             Type = mediaType,
                             Status = MediaStatus.Processing,
                             EntityId = null,
-                            EntityType = null,
+                            EntityType = "Post",
                             CreatedAt = DateTime.UtcNow,
                             CreatedBy = userId,
                             Metadata = "{\"isTemporary\": true, \"expiresAt\": \"" + DateTime.UtcNow.AddHours(24).ToString("O") + "\", \"originalFileName\": \"" + EscapeJsonString(file.FileName) + "\"}"
@@ -674,6 +672,134 @@ namespace Camply.Infrastructure.Services
 
                         media.Status = MediaStatus.Active;
 
+                        await _mediaRepository.AddAsync(media);
+                        await _mediaRepository.SaveChangesAsync();
+
+                        results.Add(new MediaUploadResponse
+                        {
+                            Id = media.Id,
+                            FileName = media.FileName,
+                            FileType = media.FileType,
+                            MimeType = media.MimeType,
+                            Url = GenerateSecureUrl(media.Url),
+                            ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl)
+                                ? GenerateSecureUrl(media.ThumbnailUrl)
+                                : null,
+                            FileSize = media.FileSize,
+                            Width = media.Width,
+                            Height = media.Height,
+                            CreatedAt = media.CreatedAt,
+                            IsTemporary = true
+                        });
+
+                        _logger.LogInformation("Temporary media uploaded successfully: {MediaId}", media.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error uploading temporary file: {FileName}", SanitizeForLogging(file.FileName));
+                        throw;
+                    }
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in temporary media upload for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<List<MediaUploadResponse>> UploadLocationMediaAsync(Guid userId, List<IFormFile> files)
+        {
+            try
+            {
+                _logger.LogInformation("Starting temporary media upload for user {UserId}, file count: {FileCount}",
+                    userId, files.Count);
+
+                var results = new List<MediaUploadResponse>();
+
+                var validationResult = await ValidateMediaFilesAsync(files);
+                if (validationResult.ErrorMessage is not null)
+                {
+                    throw new ArgumentException(validationResult.ErrorMessage);
+                }
+
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
+
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                        var mediaType = DetermineMediaType(fileExtension);
+                        var fileName = GenerateUniqueFileName(fileExtension);
+
+                        var folderPath = $"location/{userId}/{DateTime.UtcNow:yyyy/MM/dd}";
+                        var blobName = $"{folderPath}/{fileName}";
+
+                        using var stream = file.OpenReadStream();
+
+                        await _containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
+                        var blobClient = _containerClient.GetBlobClient(blobName);
+                        var blobHttpHeaders = new BlobHttpHeaders
+                        {
+                            ContentType = file.ContentType
+                        };
+                        var sanitizedOriginalFileName = SanitizeForAscii(file.FileName);
+                        var metadata = new Dictionary<string, string>
+                        {
+                            ["OriginalFileName"] = sanitizedOriginalFileName,
+                            ["UploadedBy"] = userId.ToString(),
+                            ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
+                            ["MediaType"] = mediaType.ToString(),
+                            ["IsTemporary"] = "false",
+                            ["ExpiresAt"] = DateTime.UtcNow.AddHours(24).ToString("O")
+                        };
+                        var uploadOptions = new BlobUploadOptions
+                        {
+                            HttpHeaders = blobHttpHeaders,
+                            Metadata = metadata
+                        };
+
+                        await blobClient.UploadAsync(stream, uploadOptions);
+
+                        var media = new Media
+                        {
+                            Id = Guid.NewGuid(),
+                            FileName = Path.GetFileNameWithoutExtension(file.FileName),
+                            FileType = fileExtension,
+                            MimeType = file.ContentType,
+                            Url = blobClient.Uri.ToString(),
+                            FileSize = file.Length,
+                            Type = mediaType,
+                            Status = MediaStatus.Active,
+                            EntityId = null,
+                            EntityType = "Location",
+                            CreatedAt = DateTime.UtcNow,
+                            CreatedBy = userId,
+                            Metadata = "{\"isTemporary\": false, \"expiresAt\": \"" + null + "\", \"originalFileName\": \"" + EscapeJsonString(file.FileName) + "\"}"
+                        };
+
+                        if (mediaType == MediaType.Image)
+                        {
+                            try
+                            {
+                                stream.Position = 0;
+                                var imageData = await ProcessImageVariants(stream, blobName, folderPath);
+                                media.Width = imageData.Width;
+                                media.Height = imageData.Height;
+                                media.ThumbnailUrl = imageData.ThumbnailUrl;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to process image variants for temporary media {BlobName}", blobName);
+                            }
+                        }
                         await _mediaRepository.AddAsync(media);
                         await _mediaRepository.SaveChangesAsync();
 

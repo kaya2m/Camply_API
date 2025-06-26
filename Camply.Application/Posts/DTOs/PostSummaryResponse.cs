@@ -13,7 +13,7 @@ namespace Camply.Application.Posts.DTOs
         public int LikesCount { get; set; }
         public int CommentsCount { get; set; }  
         public List<TagResponse> Tags { get; set; } = new List<TagResponse>();
-        public LocationSummaryResponse Location { get; set; }
+        public BlogLocationSummaryResponse Location { get; set; }
         public bool IsLikedByCurrentUser { get; set; }
     }
 }

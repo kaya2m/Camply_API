@@ -1,5 +1,4 @@
-﻿// TheCamply.API/Controllers/PostController.cs
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Camply.Application.Posts.DTOs;
 using Camply.Application.Posts.Interfaces;

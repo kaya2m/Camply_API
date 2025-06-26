@@ -22,7 +22,8 @@ namespace Camply.Application.Media.Interfaces
         Task<bool> AssignMediaToEntityAsync(Guid mediaId, Guid entityId, string entityType, Guid userId);
         Task<bool> UnassignMediaFromEntityAsync(Guid mediaId, Guid userId);
 
-        Task<List<MediaUploadResponse>> UploadTemporaryMediaAsync(Guid userId, List<IFormFile> files);
+        Task<List<MediaUploadResponse>> UploadPostMediaAsync(Guid userId, List<IFormFile> files);
+        Task<List<MediaUploadResponse>> UploadLocationMediaAsync(Guid userId, List<IFormFile> files);
         Task<List<MediaSummaryResponse>> GetUserTemporaryMediaAsync(Guid userId);
         Task<bool> AttachMediaToPostAsync(List<Guid> mediaIds, Guid postId, Guid userId);
         Task<ValidationResult> ValidateMediaFilesAsync(List<IFormFile> files);

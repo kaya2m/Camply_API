@@ -3,7 +3,7 @@
     /// <summary>
     /// Lokasyon özet yanıtı
     /// </summary>
-    public class LocationSummaryResponse
+    public class BlogLocationSummaryResponse
     {
         /// <summary>
         /// Lokasyon ID'si (null olabilir)

@@ -2,6 +2,7 @@
 using Camply.Application.Auth.Models;
 using Camply.Application.Auth.Services;
 using Camply.Application.Common.Interfaces;
+using Camply.Application.Locations.Interfaces;
 using Camply.Application.Media.Interfaces;
 using Camply.Application.Messages.Interfaces;
 using Camply.Application.Messages.Interfaces.Services;
@@ -164,6 +165,10 @@ namespace Camply.API.Configuration
             services.AddScoped<IMessageService, MessageService>();
             services.AddScoped<IReactionService, ReactionService>();
 
+            services.AddScoped<ILocationService, LocationService>();
+            services.AddScoped<ILocationReviewService, LocationReviewService>();
+            services.AddScoped<ILocationCacheService, LocationCacheService>();
+            services.AddScoped<ILocationAnalyticsService, LocationAnalyticsService>();
             //Post Services
             services.AddScoped<IPostService, EnhancedPostService>();
             return services;

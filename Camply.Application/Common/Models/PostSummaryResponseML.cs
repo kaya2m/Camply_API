@@ -18,7 +18,7 @@ namespace Camply.Application.Common.Models
         public int CommentCount { get; set; }
         public int ShareCount { get; set; }
         public bool IsLikedByCurrentUser { get; set; }
-        public LocationSummaryResponse Location { get; set; }
+        public BlogLocationSummaryResponse Location { get; set; }
         public List<MediaSummaryResponse> Media { get; set; } = new List<MediaSummaryResponse>();
         public List<TagResponse> Tags { get; set; } = new List<TagResponse>();
         public double EngagementScore { get; set; }

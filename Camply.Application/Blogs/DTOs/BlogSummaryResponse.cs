@@ -18,7 +18,7 @@ namespace Camply.Application.Blogs.DTOs
         public int ViewCount { get; set; }
         public List<CategoryResponse> Categories { get; set; } = new List<CategoryResponse>();
         public List<TagResponse> Tags { get; set; } = new List<TagResponse>();
-        public LocationSummaryResponse Location { get; set; }
+        public BlogLocationSummaryResponse Location { get; set; }
         public bool IsLikedByCurrentUser { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Camply.Domain.Auth;
+﻿using Camply.Domain;
+using Camply.Domain.Auth;
 using Camply.Domain.Common;
 using System.ComponentModel.DataAnnotations;
 
@@ -18,7 +19,6 @@ public class LocationReview : BaseEntity
     [Required]
     public ReviewRating OverallRating { get; set; }
 
-    // Detaylı puanlama
     public ReviewRating? CleanlinessRating { get; set; }
     public ReviewRating? ServiceRating { get; set; }
     public ReviewRating? LocationRating { get; set; }
@@ -28,19 +28,15 @@ public class LocationReview : BaseEntity
     public bool IsVerified { get; set; }
     public bool IsRecommended { get; set; }
 
-    // Ziyaret bilgileri
     public DateTime? VisitDate { get; set; }
-    public int? StayDuration { get; set; } // Gün cinsinden
+    public int? StayDuration { get; set; }
 
-    // Yardımcı puanlar
     public int HelpfulCount { get; set; }
     public int NotHelpfulCount { get; set; }
 
-    // Response from owner
     public string OwnerResponse { get; set; }
     public DateTime? OwnerResponseDate { get; set; }
 
-    // Navigation properties
     public virtual Location Location { get; set; }
     public virtual User User { get; set; }
     public virtual ICollection<Media> Photos { get; set; }
