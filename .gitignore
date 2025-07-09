@@ -365,3 +365,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Presentation/Camply.API/appsettings.json
+/.claude
+/package-lock.json
+/package.json

@@ -3,7 +3,6 @@ using Camply.API.Hubs;
 using Camply.Application.Common.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpClient();
@@ -11,9 +10,9 @@ builder.Services.AddDatabaseServices(builder.Configuration)
                 .AddAzureRedisCache(builder.Configuration)
                 .AddApplicationServices()
                 .AddInfrastructureServices(builder.Configuration)
-                 .AddMediaServices(builder.Configuration)
+                .AddMediaServices(builder.Configuration)
                 .AddJwtAuthentication(builder.Configuration)
-               .AddSessionConfiguration(builder.Configuration)
+                .AddSessionConfiguration(builder.Configuration)
                 .AddSwaggerConfiguration()
                 .AddRateLimit(builder.Configuration)
                 .AddCorsConfiguration(builder.Configuration);
@@ -56,7 +55,6 @@ app.MapHub<ChatHub>("/chatHub");
 await app.UseDataInitializer();
 await app.Services.InitializeMLServicesAsync();
 
-// Initialize blob storage
 using (var scope = app.Services.CreateScope())
 {
     var blobInitializer = scope.ServiceProvider.GetService<IBlobStorageInitializer>();

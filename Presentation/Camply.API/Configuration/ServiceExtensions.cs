@@ -171,6 +171,7 @@ namespace Camply.API.Configuration
             services.AddScoped<ILocationAnalyticsService, LocationAnalyticsService>();
             //Post Services
             services.AddScoped<IPostService, EnhancedPostService>();
+
             return services;
         }
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
@@ -194,6 +195,9 @@ namespace Camply.API.Configuration
 
            //Chat User Service
               services.AddSingleton<UserPresenceTracker>();
+              
+            // Feed Cache Warmup Service
+            services.AddHostedService<FeedCacheWarmupService>();
 
             return services;
         }

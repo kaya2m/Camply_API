@@ -33,10 +33,13 @@ namespace Camply.Infrastructure.Data.Configurations
                 .OnDelete(DeleteBehavior.SetNull)
                 .IsRequired(false);
 
-            // Index for feed queries
+            // Optimized indexes for feed queries
             builder.HasIndex(p => new { p.UserId, p.CreatedAt });
-            builder.HasIndex(p => p.Status);
+            builder.HasIndex(p => new { p.Status, p.CreatedAt }); // For general posts ordering
+            builder.HasIndex(p => new { p.Status, p.ViewCount }); // For popular posts
             builder.HasIndex(p => p.LocationId);
+            builder.HasIndex(p => new { p.LocationId, p.Status, p.CreatedAt }); // For location-based feeds
+            builder.HasIndex(p => p.CreatedAt); // For quick date sorting
         }
     }
 }

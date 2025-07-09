@@ -9,11 +9,7 @@ using Camply.Domain.Enums;
 using Camply.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Camply.Infrastructure.Services
@@ -34,9 +30,9 @@ namespace Camply.Infrastructure.Services
         private readonly IMediaService _mediaService;
 
         private const string POST_CACHE_KEY = "post:{0}";
-        private const string POSTS_CACHE_KEY = "posts:{0}:{1}:{2}:{3}"; // page:size:sort:userId
+        private const string POSTS_CACHE_KEY = "posts:{0}:{1}:{2}:{3}:{4}"; // page:size:sort:userId:timestamp
         private const string USER_POSTS_CACHE_KEY = "user_posts:{0}:{1}:{2}:{3}"; // userId:page:size:currentUserId
-        private const string FEED_CACHE_KEY = "feed:{0}:{1}:{2}"; // userId:page:size
+        private const string FEED_CACHE_KEY = "feed:{0}:{1}:{2}:{3}"; // userId:page:size:timestamp
         private const string POST_LIKES_COUNT_KEY = "post_likes_count:{0}";
         private const string POST_COMMENTS_COUNT_KEY = "post_comments_count:{0}";
         private const string USER_LIKED_POST_KEY = "user_liked:{0}:{1}"; // userId:postId
@@ -75,9 +71,9 @@ namespace Camply.Infrastructure.Services
         public async Task<PagedResponse<PostSummaryResponse>> GetPostsAsync(
             int pageNumber, int pageSize, string sortBy = "recent", Guid? currentUserId = null)
         {
-            var cacheKey = string.Format(POSTS_CACHE_KEY, pageNumber, pageSize, sortBy, currentUserId?.ToString() ?? "anonymous");
+            var cacheTimestamp = DateTime.UtcNow.ToString("yyyyMMddHH");
+            var cacheKey = string.Format(POSTS_CACHE_KEY, pageNumber, pageSize, sortBy, currentUserId?.ToString() ?? "anonymous", cacheTimestamp);
 
-            // Try cache first
             var cachedResult = await _cacheService.GetAsync<PagedResponse<PostSummaryResponse>>(cacheKey);
             if (cachedResult != null)
             {
@@ -89,12 +85,11 @@ namespace Camply.Infrastructure.Services
             {
                 var query = await _postRepository.FindAsync(p => p.Status == PostStatus.Active);
                 var posts = query.ToList();
+                var sortedPosts = ApplySorting(posts, sortBy).ToList();
 
-                posts = ApplySorting(posts, sortBy).ToList();
+                var totalCount = sortedPosts.Count;
 
-                var totalCount = posts.Count;
-
-                var paginatedPosts = posts
+                var paginatedPosts = sortedPosts
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
@@ -110,7 +105,6 @@ namespace Camply.Infrastructure.Services
                     TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
                 };
 
-                // Cache for 5 minutes
                 await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
                 _logger.LogDebug("Posts cached for key: {CacheKey}", cacheKey);
 
@@ -175,7 +169,8 @@ namespace Camply.Infrastructure.Services
 
         public async Task<PagedResponse<PostSummaryResponse>> GetFeedAsync(Guid userId, int pageNumber, int pageSize)
         {
-            var cacheKey = string.Format(FEED_CACHE_KEY, userId, pageNumber, pageSize);
+            var cacheTimestamp = DateTime.UtcNow.ToString("yyyyMMddHH");
+            var cacheKey = string.Format(FEED_CACHE_KEY, userId, pageNumber, pageSize, cacheTimestamp);
 
             var cachedFeed = await _cacheService.GetAsync<PagedResponse<PostSummaryResponse>>(cacheKey);
             if (cachedFeed != null)
@@ -189,16 +184,19 @@ namespace Camply.Infrastructure.Services
                 var followingIds = await GetFollowingIdsFromCacheAsync(userId) ?? new List<Guid>();
                 followingIds.Add(userId);
 
-                var allPostsQuery = await _postRepository.FindAsync(p => followingIds.Contains(p.UserId) && p.Status == PostStatus.Active);
-                var posts = allPostsQuery.OrderByDescending(p => p.CreatedAt).ToList();
+                var allPosts = await _postRepository.FindAsync(p => p.Status == PostStatus.Active);
+                var feedPosts = allPosts.Where(post => followingIds.Contains(post.UserId))
+                                       .OrderByDescending(post => post.CreatedAt)
+                                       .ToList();
 
-                var totalCount = posts.Count;
-                var paginatedPosts = posts
+                var totalCount = feedPosts.Count;
+
+                var posts = feedPosts
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToList();
 
-                var postResponses = await MapPostsToResponseWithCacheAsync(paginatedPosts, userId);
+                var postResponses = await MapPostsToResponseWithCacheAsync(posts, userId);
 
                 var result = new PagedResponse<PostSummaryResponse>
                 {
@@ -597,24 +595,20 @@ namespace Camply.Infrastructure.Services
 
         private async Task InvalidatePostCachesAsync(Guid postId)
         {
-            // Remove specific post cache
             var postCacheKey = string.Format(POST_CACHE_KEY, postId);
             await _cacheService.RemoveAsync(postCacheKey);
 
-            // Remove like and comment counts
             var likesCountKey = string.Format(POST_LIKES_COUNT_KEY, postId);
             var commentsCountKey = string.Format(POST_COMMENTS_COUNT_KEY, postId);
             await _cacheService.RemoveAsync(likesCountKey);
             await _cacheService.RemoveAsync(commentsCountKey);
 
-            // Remove general posts lists
             await _cacheService.RemovePatternAsync("posts:*");
             await _cacheService.RemovePatternAsync("feed:*");
         }
 
         private async Task InvalidateUserCachesAsync(Guid userId)
         {
-            // Remove user-specific caches
             await _cacheService.RemovePatternAsync($"user_posts:{userId}:*");
             await _cacheService.RemovePatternAsync("feed:*");
             await _cacheService.RemovePatternAsync("posts:*");
@@ -622,22 +616,59 @@ namespace Camply.Infrastructure.Services
 
         private async Task<List<PostSummaryResponse>> MapPostsToResponseWithCacheAsync(List<Post> posts, Guid? currentUserId = null)
         {
+            if (!posts.Any()) return new List<PostSummaryResponse>();
+
+            var postIds = posts.Select(p => p.Id).ToList();
+            var userIds = posts.Select(p => p.UserId).Distinct().ToList();
+            var locationIds = posts.Where(p => p.LocationId.HasValue).Select(p => p.LocationId.Value).Distinct().ToList();
+
+            var mediaTask =await _mediaRepository.FindAsync(m => m.EntityId.HasValue && postIds.Contains(m.EntityId.Value) && m.EntityType == "Post");
+            var postTagsTask = await _postTagRepository.FindAsync(pt => postIds.Contains(pt.PostId));
+            var locationsResult = locationIds.Count > 0
+                         ? await _locationRepository.FindAsync(l => locationIds.Contains(l.Id))
+                         : Enumerable.Empty<Location>();
+
+
+            var mediaLookup = ( mediaTask)
+                .ToList()
+                .GroupBy(m => m.EntityId.GetValueOrDefault()) 
+                .ToDictionary(g => g.Key, g => g.ToList());
+            var postTagsLookup = ( postTagsTask).ToList().GroupBy(pt => pt.PostId).ToDictionary(g => g.Key, g => g.Select(pt => pt.TagId).ToList());
+            var locationsLookup = locationIds.Any() ? (locationsResult).ToList().ToDictionary(l => l.Id, l => l) : new Dictionary<Guid, Location>();
+
+            var allTagIds = postTagsLookup.Values.SelectMany(tagIds => tagIds).Distinct().ToList();
+            var tagsLookup = allTagIds.Any() ? 
+                (await _tagRepository.FindAsync(t => allTagIds.Contains(t.Id))).ToList().ToDictionary(t => t.Id, t => t) : 
+                new Dictionary<Guid, Tag>();
+
             var postResponses = new List<PostSummaryResponse>();
 
             foreach (var post in posts)
             {
-                var postResponse = await MapPostToSummaryResponseWithCacheAsync(post, currentUserId);
+                var postResponse = await MapPostToSummaryResponseWithBulkDataAsync(post, currentUserId, mediaLookup, postTagsLookup, locationsLookup, tagsLookup);
                 postResponses.Add(postResponse);
             }
 
             return postResponses;
         }
 
-        private async Task<PostSummaryResponse> MapPostToSummaryResponseWithCacheAsync(Post post, Guid? currentUserId = null)
+        private async Task<PostSummaryResponse> MapPostToSummaryResponseWithBulkDataAsync(
+            Post post,
+            Guid? currentUserId,
+            Dictionary<Guid, List<Media>> mediaLookup,
+            Dictionary<Guid, List<Guid>> postTagsLookup,
+            Dictionary<Guid, Location> locationsLookup,
+            Dictionary<Guid, Tag> tagsLookup)
         {
             var user = await GetUserFromCacheAsync(post.UserId);
-            var likesCount = await GetLikesCountFromCacheAsync(post.Id);
-            var commentsCount = await GetCommentsCountFromCacheAsync(post.Id);
+
+            // Execute count operations in parallel
+            var likesCountTask =await GetLikesCountFromCacheAsync(post.Id);
+            var commentsCountTask = await GetCommentsCountFromCacheAsync(post.Id);
+
+
+            var likesCount =  likesCountTask;
+            var commentsCount =  commentsCountTask;
 
             var isLiked = false;
             if (currentUserId.HasValue)
@@ -645,11 +676,101 @@ namespace Camply.Infrastructure.Services
                 isLiked = await IsPostLikedByUserFromCacheAsync(post.Id, currentUserId.Value);
             }
 
-            var mediaQuery = await _mediaRepository.FindAsync(m => m.EntityId == post.Id && m.EntityType == "Post");
-            var media = mediaQuery.ToList();
+            // Get media from lookup
+            var media = mediaLookup.TryGetValue(post.Id, out var postMedia) ? postMedia : new List<Media>();
 
-            var tagIds = (await _postTagRepository.FindAsync(pt => pt.PostId == post.Id))
-                .Select(pt => pt.TagId).ToList();
+            // Get tags from lookup
+            var tags = new List<TagResponse>();
+            if (postTagsLookup.TryGetValue(post.Id, out var tagIds) && tagIds.Any())
+            {
+                tags = tagIds.Where(tagId => tagsLookup.ContainsKey(tagId))
+                            .Select(tagId => tagsLookup[tagId])
+                            .Select(t => new TagResponse
+                            {
+                                Id = t.Id,
+                                Name = t.Name,
+                                Slug = t.Slug,
+                                UsageCount = t.UsageCount
+                            }).ToList();
+            }
+
+            // Get location from lookup
+            BlogLocationSummaryResponse location = null;
+            if (post.LocationId.HasValue && locationsLookup.TryGetValue(post.LocationId.Value, out var locationEntity))
+            {
+                location = new BlogLocationSummaryResponse
+                {
+                    Id = locationEntity.Id,
+                    Name = locationEntity.Name,
+                    Latitude = locationEntity.Latitude,
+                    Longitude = locationEntity.Longitude,
+                    Type = locationEntity.Type.ToString()
+                };
+            }
+            else if (!string.IsNullOrEmpty(post.LocationName))
+            {
+                location = new BlogLocationSummaryResponse
+                {
+                    Id = null,
+                    Name = post.LocationName,
+                    Latitude = post.Latitude,
+                    Longitude = post.Longitude,
+                    Type = null
+                };
+            }
+
+            return new PostSummaryResponse
+            {
+                Id = post.Id,
+                User = new Application.Users.DTOs.UserSummaryResponse
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    ProfileImageUrl = await _mediaService.GenerateSecureUrlAsync(user.ProfileImageUrl)
+                },
+                Content = post.Content,
+                Media = media.Select(m => new MediaSummaryResponse
+                {
+                    Id = m.Id,
+                    Url = m.Url,
+                    ThumbnailUrl = m.ThumbnailUrl,
+                    FileType = m.FileType,
+                    Description = m.Description,
+                    AltTag = m.AltTag,
+                    Width = m.Width,
+                    Height = m.Height
+                }).ToList(),
+                CreatedAt = post.CreatedAt,
+                LikesCount = likesCount,
+                CommentsCount = commentsCount,
+                Tags = tags,
+                Location = location,
+                IsLikedByCurrentUser = isLiked
+            };
+        }
+
+        private async Task<PostSummaryResponse> MapPostToSummaryResponseWithCacheAsync(Post post, Guid? currentUserId = null)
+        {
+            var user = await GetUserFromCacheAsync(post.UserId);
+            
+            var likesCountTask =await GetLikesCountFromCacheAsync(post.Id);
+            var commentsCountTask =await GetCommentsCountFromCacheAsync(post.Id);
+            var mediaTask =await _mediaRepository.FindAsync(m => m.EntityId == post.Id && m.EntityType == "Post");
+            var postTagsTask =await _postTagRepository.FindAsync(pt => pt.PostId == post.Id);
+            
+            
+            var likesCount =  likesCountTask;
+            var commentsCount =  commentsCountTask;
+            var mediaQuery =  mediaTask;
+            var media = mediaQuery.ToList();
+            
+            var isLiked = false;
+            if (currentUserId.HasValue)
+            {
+                isLiked = await IsPostLikedByUserFromCacheAsync(post.Id, currentUserId.Value);
+            }
+
+            var tagIds = ( postTagsTask).Select(pt => pt.TagId).ToList();
             var tags = new List<TagResponse>();
 
             if (tagIds.Any())
@@ -691,6 +812,17 @@ namespace Camply.Infrastructure.Services
                     };
                 }
             }
+            else if (!string.IsNullOrEmpty(post.LocationName))
+            {
+                location = new BlogLocationSummaryResponse
+                {
+                    Id = null,
+                    Name = post.LocationName,
+                    Latitude = post.Latitude,
+                    Longitude = post.Longitude,
+                    Type = null
+                };
+            }
 
             return new PostSummaryResponse
             {
@@ -699,7 +831,7 @@ namespace Camply.Infrastructure.Services
                 {
                     Id = user.Id,
                     Username = user.Username,
-                    ProfileImageUrl = await _mediaService.GenerateSecureUrlAsync( user.ProfileImageUrl)
+                    ProfileImageUrl = await _mediaService.GenerateSecureUrlAsync(user.ProfileImageUrl)
                 },
                 Content = post.Content,
                 Media = media.Select(m => new MediaSummaryResponse
@@ -778,6 +910,16 @@ namespace Camply.Infrastructure.Services
                 "recent" => posts.OrderByDescending(p => p.CreatedAt),
                 "popular" => posts.OrderByDescending(p => p.ViewCount),
                 _ => posts.OrderByDescending(p => p.CreatedAt)
+            };
+        }
+
+        private IQueryable<Post> ApplySortingToQuery(IQueryable<Post> query, string sortBy)
+        {
+            return sortBy.ToLower() switch
+            {
+                "recent" => query.OrderByDescending(p => p.CreatedAt),
+                "popular" => query.OrderByDescending(p => p.ViewCount),
+                _ => query.OrderByDescending(p => p.CreatedAt)
             };
         }
 

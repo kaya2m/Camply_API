@@ -4,12 +4,6 @@ using Camply.Application.Common.Interfaces;
 using Camply.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Camply.Infrastructure.ExternalServices
 {
     public class BlobStorageInitializer : IBlobStorageInitializer
@@ -33,12 +27,8 @@ namespace Camply.Infrastructure.ExternalServices
             {
                 var containerClient = _blobServiceClient.GetBlobContainerClient(_settings.ContainerName);
 
-                // Create container if not exists
                 await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
-
-                // Set CORS policy for web access
                 await SetCorsPolicy();
-
                 _logger.LogInformation($"Blob storage container '{_settings.ContainerName}' initialized successfully");
             }
             catch (Exception ex)
@@ -54,8 +44,6 @@ namespace Camply.Infrastructure.ExternalServices
             {
                 var properties = await _blobServiceClient.GetPropertiesAsync();
                 var cors = properties.Value.Cors.ToList();
-
-                // Add CORS rule if not exists
                 if (!cors.Any(c => c.AllowedOrigins.Contains("*")))
                 {
                     cors.Add(new BlobCorsRule
