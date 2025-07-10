@@ -31,6 +31,7 @@ namespace Camply.Infrastructure.Services
         private readonly CodeSettings _codeSettings;
         private readonly ICodeBuilderService _codeBuilder;
         private readonly IMediaService _mediaService;
+        private readonly ICacheService _cacheService;
         public UserService(
             IRepository<User> userRepository,
             IRepository<Post> postRepository,
@@ -42,7 +43,8 @@ namespace Camply.Infrastructure.Services
             IEmailService emailService,
             ICodeBuilderService codeBuilder,
            IOptions<CodeSettings> codeSettings,
-           IMediaService mediaService)
+           IMediaService mediaService,
+           ICacheService cacheService)
         {
             _userRepository = userRepository;
             _postRepository = postRepository;
@@ -55,6 +57,7 @@ namespace Camply.Infrastructure.Services
             _codeBuilder = codeBuilder;
             _codeSettings = codeSettings.Value;
             _mediaService = mediaService;
+            _cacheService = cacheService;
         }
 
         public async Task<UserProfileResponse> GetUserProfileAsync(Guid userId, Guid? currentUserId = null)
@@ -212,6 +215,35 @@ namespace Camply.Infrastructure.Services
                 throw;
             }
         }
+
+        public async Task<bool> UpdateCoverPicture(Guid userId, string Url)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
+
+                if (!string.IsNullOrWhiteSpace(Url))
+                {
+                    user.CoverImageUrl = Url;
+                }
+
+                user.LastModifiedAt = DateTime.UtcNow;
+
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating cover picture for user ID {userId}");
+                throw;
+            }
+        }
         public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
         {
             try
@@ -277,6 +309,8 @@ namespace Camply.Infrastructure.Services
                 await _followRepository.AddAsync(follow);
                 await _followRepository.SaveChangesAsync();
 
+                await InvalidateFollowCachesAsync(currentUserId, userToFollowId);
+                
                 return true;
             }
             catch (Exception ex)
@@ -301,6 +335,8 @@ namespace Camply.Infrastructure.Services
                 _followRepository.Remove(follow);
                 await _followRepository.SaveChangesAsync();
 
+                await InvalidateFollowCachesAsync(currentUserId, userToUnfollowId);
+                
                 return true;
             }
             catch (Exception ex)
@@ -769,6 +805,7 @@ namespace Camply.Infrastructure.Services
             var roleNames = roles.Select(r => r.Name).ToList();
 
             var secureProfileImageUrl = await GetSecureProfileImageUrl(user.ProfileImageUrl);
+            var secureCoverImageUrl = await GetSecureProfileImageUrl(user.CoverImageUrl);
 
             return new UserProfileResponse
             {
@@ -778,6 +815,7 @@ namespace Camply.Infrastructure.Services
                 Username = user.Username,
                 Email = user.Email,
                 ProfileImageUrl = secureProfileImageUrl,
+                CoverImageUrl = secureCoverImageUrl,
                 Bio = user.Bio,
                 CreatedAt = user.CreatedAt,
                 LastLoginAt = user.LastLoginAt,
@@ -814,6 +852,32 @@ namespace Camply.Infrastructure.Services
             return dateTime.Value.Kind == DateTimeKind.Unspecified
                 ? DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc)
                 : dateTime.Value.ToUniversalTime();
+        }
+
+        private async Task InvalidateFollowCachesAsync(Guid followerId, Guid followedId)
+        {
+            try
+            {
+                await _cacheService.RemoveAsync($"following:{followerId}");
+                await _cacheService.RemovePatternAsync($"feed:{followerId}:*");
+                await _cacheService.RemoveAsync($"user:{followerId}");
+                await _cacheService.RemoveAsync($"user:{followedId}");
+                
+                // Invalidate recommendation caches
+                await _cacheService.RemovePatternAsync($"user_recommendations:{followerId}:*");
+                await _cacheService.RemovePatternAsync($"user_recommendations:{followedId}:*");
+                await _cacheService.RemoveAsync($"mutual_followers:{followerId}");
+                await _cacheService.RemoveAsync($"mutual_followers:{followedId}");
+                await _cacheService.RemoveAsync($"user_following:{followerId}");
+                await _cacheService.RemoveAsync($"user_following:{followedId}");
+                await _cacheService.RemovePatternAsync("popular_users:*");
+                
+                _logger.LogInformation($"Cache invalidated for follow operation. FollowerId: {followerId}, FollowedId: {followedId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error invalidating follow caches. FollowerId: {followerId}, FollowedId: {followedId}");
+            }
         }
 
         #endregion

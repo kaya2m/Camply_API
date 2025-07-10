@@ -33,6 +33,7 @@ namespace Camply.Infrastructure.Data
         public DbSet<Post> Posts { get; set; }
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<Comment> Comments { get; set; }
+        public DbSet<CommentLike> CommentLikes { get; set; }
         public DbSet<Like> Likes { get; set; }
         public DbSet<Follow> Follows { get; set; }
         public DbSet<Media> Media { get; set; }

@@ -564,5 +564,50 @@ namespace Camply.API.Controllers
                     new { message = "Doğrulama kodu yeniden gönderilirken bir hata oluştu" });
             }
         }
+
+        /// <summary>
+        /// Update cover photo for current user
+        /// </summary>
+        /// <param name="request">Cover photo update request</param>
+        /// <returns>Success result</returns>
+        [HttpPut("me/cover-photo")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> UpdateCoverPhoto([FromBody] UpdateCoverPhotoRequest request)
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.CoverImageUrl))
+                {
+                    return BadRequest(new { message = "Cover image URL is required" });
+                }
+
+                var result = await _userService.UpdateCoverPicture(userId.Value, request.CoverImageUrl);
+                
+                if (result)
+                {
+                    return Ok(new { message = "Cover photo updated successfully" });
+                }
+
+                return BadRequest(new { message = "Failed to update cover photo" });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating cover photo");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred while updating cover photo" });
+            }
+        }
     }
 }

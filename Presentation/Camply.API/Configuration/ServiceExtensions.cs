@@ -155,6 +155,7 @@ namespace Camply.API.Configuration
 
             // User services
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserRecommendationService, OptimizedUserRecommendationService>();
 
             // Chat Services 
             services.AddScoped<IConversationRepository, ConversationRepository>();
@@ -195,6 +196,9 @@ namespace Camply.API.Configuration
 
            //Chat User Service
               services.AddSingleton<UserPresenceTracker>();
+              
+              // Background Services
+              services.AddHostedService<RecommendationBackgroundService>();
               
             // Feed Cache Warmup Service
             services.AddHostedService<FeedCacheWarmupService>();

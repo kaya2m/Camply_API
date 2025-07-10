@@ -13,6 +13,7 @@ namespace Camply.Application.Media.Interfaces
     public interface IMediaService
     {
         Task<MediaUploadResponse> UploadMediaAsync(Guid userId, IFormFile file);
+        Task<MediaUploadResponse> UploadMediaAsync(Guid userId, IFormFile file, bool generateThumbnail);
         Task<MediaUploadResponse> UploadMediaFromStreamAsync(Guid userId, Stream fileStream, string fileName, string contentType);
         Task<MediaDetailResponse> GetMediaByIdAsync(Guid mediaId);
         Task<PagedResponse<MediaSummaryResponse>> GetMediaByUserAsync(Guid userId, int pageNumber, int pageSize);
@@ -29,5 +30,6 @@ namespace Camply.Application.Media.Interfaces
         Task<ValidationResult> ValidateMediaFilesAsync(List<IFormFile> files);
 
         Task<string> GenerateSecureUrlAsync(string blobUrl);
+        Task<MediaUploadResponse> UploadCoverPhotoAsync(Guid userId, IFormFile file);
     }
 }

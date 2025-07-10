@@ -40,6 +40,11 @@ namespace Camply.Infrastructure.Data.Repositories
             return await _dbSet.SingleOrDefaultAsync(predicate);
         }
 
+        public virtual async Task<TEntity> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await _dbSet.FirstOrDefaultAsync(predicate);
+        }
+
         public virtual async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate)
         {
             return await _dbSet.AnyAsync(predicate);

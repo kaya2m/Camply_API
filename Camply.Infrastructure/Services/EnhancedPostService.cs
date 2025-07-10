@@ -169,7 +169,7 @@ namespace Camply.Infrastructure.Services
 
         public async Task<PagedResponse<PostSummaryResponse>> GetFeedAsync(Guid userId, int pageNumber, int pageSize)
         {
-            var cacheTimestamp = DateTime.UtcNow.ToString("yyyyMMddHH");
+            var cacheTimestamp = DateTime.UtcNow.ToString("yyyyMMddHHmm");
             var cacheKey = string.Format(FEED_CACHE_KEY, userId, pageNumber, pageSize, cacheTimestamp);
 
             var cachedFeed = await _cacheService.GetAsync<PagedResponse<PostSummaryResponse>>(cacheKey);
@@ -207,7 +207,7 @@ namespace Camply.Infrastructure.Services
                     TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
                 };
 
-                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(15));
+                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
                 return result;
             }
             catch (Exception ex)
@@ -534,7 +534,7 @@ namespace Camply.Infrastructure.Services
             {
                 var followingQuery = await _followRepository.FindAsync(f => f.FollowerId == userId);
                 var followingIds = followingQuery?.Select(f => f.FollowedId).ToList() ?? new List<Guid>();
-                await _cacheService.SetAsync(cacheKey, followingIds, TimeSpan.FromHours(1));
+                await _cacheService.SetAsync(cacheKey, followingIds, TimeSpan.FromMinutes(30));
                 return followingIds;
             }
             catch (Exception ex)

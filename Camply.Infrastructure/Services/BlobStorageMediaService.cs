@@ -63,6 +63,11 @@ namespace Camply.Infrastructure.Services
 
         public async Task<MediaUploadResponse> UploadMediaAsync(Guid userId, IFormFile file)
         {
+            return await UploadMediaAsync(userId, file, generateThumbnail: false);
+        }
+
+        public async Task<MediaUploadResponse> UploadMediaAsync(Guid userId, IFormFile file, bool generateThumbnail)
+        {
             try
             {
                 await ValidateFile(file);
@@ -133,7 +138,8 @@ namespace Camply.Infrastructure.Services
                     CreatedBy = userId
                 };
 
-                if (mediaType == MediaType.Image)
+                // Only generate thumbnails when explicitly requested
+                if (mediaType == MediaType.Image && generateThumbnail)
                 {
                     try
                     {
@@ -148,6 +154,22 @@ namespace Camply.Infrastructure.Services
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to process image variants for {BlobName}", blobName);
+                    }
+                }
+                else if (mediaType == MediaType.Image)
+                {
+                    // Still get dimensions but don't create thumbnails
+                    try
+                    {
+                        stream.Position = 0;
+                        using var image = await Image.LoadAsync(stream);
+                        media.Width = image.Width;
+                        media.Height = image.Height;
+                        _logger.LogInformation("Image dimensions retrieved: {Width}x{Height}", media.Width, media.Height);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get image dimensions for {BlobName}", blobName);
                     }
                 }
 
@@ -244,21 +266,20 @@ namespace Camply.Infrastructure.Services
                     CreatedBy = userId
                 };
 
-                // Process image variants if it's an image
+                // Only get dimensions for images, no thumbnails by default
                 if (mediaType == MediaType.Image)
                 {
                     try
                     {
                         fileStream.Position = 0;
-                        var imageData = await ProcessImageVariants(fileStream, blobName, folderPath);
-                        media.Width = imageData.Width;
-                        media.Height = imageData.Height;
-                        media.ThumbnailUrl = imageData.ThumbnailUrl;
+                        using var image = await Image.LoadAsync(fileStream);
+                        media.Width = image.Width;
+                        media.Height = image.Height;
+                        _logger.LogInformation("Image dimensions retrieved: {Width}x{Height}", media.Width, media.Height);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to process image variants");
-                        // Continue without thumbnails
+                        _logger.LogError(ex, "Failed to get image dimensions");
                     }
                 }
 
@@ -1169,6 +1190,192 @@ namespace Camply.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error generating secure URL for blob: {BlobUrl}", blobUrl);
                 return blobUrl;
+            }
+        }
+
+        public async Task<MediaUploadResponse> UploadCoverPhotoAsync(Guid userId, IFormFile file)
+        {
+            try
+            {
+                await ValidateFile(file);
+                _logger.LogInformation("Cover photo validation passed for user {UserId}, file: {FileName}", userId, file.FileName);
+
+                var user = await _userRepository.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found with ID: {UserId}", userId);
+                    throw new KeyNotFoundException($"User with ID {userId} not found");
+                }
+
+                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var mediaType = DetermineMediaType(fileExtension);
+                
+                if (mediaType != MediaType.Image)
+                {
+                    throw new ArgumentException("Cover photo must be an image file");
+                }
+
+                var fileName = GenerateUniqueFileName(fileExtension);
+                var folderPath = $"covers/{userId}/{DateTime.UtcNow:yyyy/MM}";
+                var blobName = $"{folderPath}/{fileName}";
+
+                _logger.LogInformation("Uploading cover photo to blob: {BlobName}", blobName);
+
+                using var stream = file.OpenReadStream();
+
+                await _containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
+
+                var blobClient = _containerClient.GetBlobClient(blobName);
+
+                var blobHttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = file.ContentType
+                };
+
+                var sanitizedOriginalFileName = SanitizeForAscii(file.FileName);
+
+                var metadata = new Dictionary<string, string>
+                {
+                    ["OriginalFileName"] = sanitizedOriginalFileName,
+                    ["UploadedBy"] = userId.ToString(),
+                    ["UploadedAt"] = DateTime.UtcNow.ToString("O"),
+                    ["MediaType"] = mediaType.ToString(),
+                    ["IsCoverPhoto"] = "true"
+                };
+
+                var uploadOptions = new BlobUploadOptions
+                {
+                    HttpHeaders = blobHttpHeaders,
+                    Metadata = metadata
+                };
+
+                var uploadResult = await blobClient.UploadAsync(stream, uploadOptions);
+
+                if (uploadResult == null)
+                {
+                    throw new InvalidOperationException("Failed to upload cover photo to blob storage");
+                }
+
+                _logger.LogInformation("Cover photo uploaded successfully to blob: {BlobName}", blobName);
+
+                var media = new Media
+                {
+                    Id = Guid.NewGuid(),
+                    FileName = Path.GetFileNameWithoutExtension(file.FileName),
+                    FileType = fileExtension,
+                    MimeType = file.ContentType,
+                    Url = blobClient.Uri.ToString(),
+                    FileSize = file.Length,
+                    Type = mediaType,
+                    Status = MediaStatus.Processing,
+                    EntityId = userId,
+                    EntityType = "UserCover",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = userId
+                };
+
+                try
+                {
+                    stream.Position = 0;
+                    var imageData = await ProcessCoverPhotoVariants(stream, blobName, folderPath);
+                    media.Width = imageData.Width;
+                    media.Height = imageData.Height;
+                    media.ThumbnailUrl = imageData.ThumbnailUrl;
+
+                    _logger.LogInformation("Cover photo variants processed successfully for {BlobName}", blobName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to process cover photo variants for {BlobName}", blobName);
+                }
+
+                media.Status = MediaStatus.Active;
+
+                await _mediaRepository.AddAsync(media);
+                await _mediaRepository.SaveChangesAsync();
+
+                user.CoverImageUrl = GenerateSecureUrl(media.Url);
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+
+                _logger.LogInformation("Cover photo media record created successfully with ID: {MediaId}", media.Id);
+
+                 return new MediaUploadResponse
+                {
+                    Id = media.Id,
+                    FileName = media.FileName,
+                    FileType = media.FileType,
+                    MimeType = media.MimeType,
+                    Url = GenerateSecureUrl(media.Url),
+                    ThumbnailUrl = !string.IsNullOrEmpty(media.ThumbnailUrl)
+                            ? GenerateSecureUrl(media.ThumbnailUrl)
+                            : null,
+                    FileSize = media.FileSize,
+                    Width = media.Width,
+                    Height = media.Height,
+                    CreatedAt = media.CreatedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading cover photo for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        private async Task<(int Width, int Height, string ThumbnailUrl)> ProcessCoverPhotoVariants(Stream imageStream, string originalBlobName, string folderPath)
+        {
+            try
+            {
+                using var image = await Image.LoadAsync(imageStream);
+                var originalWidth = image.Width;
+                var originalHeight = image.Height;
+
+                // Cover photo thumbnail (smaller version for mobile/loading)
+                var thumbnailWidth = 800;
+                var thumbnailHeight = 300;
+                
+                using var thumbnail = image.Clone(x => x.Resize(new ResizeOptions
+                {
+                    Size = new Size(thumbnailWidth, thumbnailHeight),
+                    Mode = ResizeMode.Crop,
+                    Position = AnchorPositionMode.Center
+                }));
+
+                var originalFileName = Path.GetFileNameWithoutExtension(originalBlobName);
+                var thumbnailBlobName = $"{folderPath}/thumbnails/{originalFileName}_cover_thumb.jpg";
+
+                using var thumbnailStream = new MemoryStream();
+                await thumbnail.SaveAsJpegAsync(thumbnailStream, new JpegEncoder { Quality = 85 });
+                thumbnailStream.Position = 0;
+
+                var thumbnailBlobClient = _containerClient.GetBlobClient(thumbnailBlobName);
+
+                var blobHttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = "image/jpeg"
+                };
+
+                var uploadOptions = new BlobUploadOptions
+                {
+                    HttpHeaders = blobHttpHeaders,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["IsThumbnail"] = "true",
+                        ["IsCoverThumbnail"] = "true",
+                        ["OriginalImage"] = originalBlobName,
+                        ["CreatedAt"] = DateTime.UtcNow.ToString("O")
+                    }
+                };
+
+                await thumbnailBlobClient.UploadAsync(thumbnailStream, uploadOptions);
+
+                return (originalWidth, originalHeight, thumbnailBlobClient.Uri.ToString());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing cover photo variants for {OriginalBlobName}", originalBlobName);
+                throw;
             }
         }
         private static string SanitizeForAscii(string input)

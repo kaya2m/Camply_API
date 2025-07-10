@@ -1,0 +1,2527 @@
+{
+  "info": {
+    "name": "Camply API",
+    "description": "Complete API documentation for Camply social media platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://localhost:5001/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"TestPassword123!\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"phoneNumber\": \"+1234567890\",\n  \"birthDate\": \"1990-01-01\",\n  \"profileImageUrl\": \"https://example.com/profile.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"TestPassword123!\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "register"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully\",\n  \"data\": {\n    \"accessToken\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n    \"refreshToken\": \"refresh_token_here\",\n    \"user\": {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"username\": \"testuser\",\n      \"email\": \"test@example.com\",\n      \"firstName\": \"Test\",\n      \"lastName\": \"User\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"TestPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password"
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"TestPassword123!\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful\",\n  \"data\": {\n    \"accessToken\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n    \"refreshToken\": \"refresh_token_here\",\n    \"user\": {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"username\": \"testuser\",\n      \"email\": \"test@example.com\",\n      \"firstName\": \"Test\",\n      \"lastName\": \"User\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Social Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"social_provider_token\",\n  \"provider\": \"google\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/social/:provider",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "social", ":provider"],
+              "variable": [
+                {
+                  "key": "provider",
+                  "value": "google",
+                  "description": "Social provider: google, facebook, twitter"
+                }
+              ]
+            },
+            "description": "Login with social media provider"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"refresh_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "description": "Refresh authentication token"
+          }
+        },
+        {
+          "name": "Revoke Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"refresh_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/revoke-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "revoke-token"]
+            },
+            "description": "Revoke refresh token"
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/validate-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "validate-token"]
+            },
+            "description": "Validate JWT token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints",
+      "item": [
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:id",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID (UUID)"
+                }
+              ]
+            },
+            "description": "Get user profile by ID"
+          }
+        },
+        {
+          "name": "Get User by Username",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/by-username/:username",
+              "host": ["{{base_url}}"],
+              "path": ["users", "by-username", ":username"],
+              "variable": [
+                {
+                  "key": "username",
+                  "value": "testuser",
+                  "description": "Username"
+                }
+              ]
+            },
+            "description": "Get user profile by username"
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/search-user?username=test&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users", "search-user"],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "test",
+                  "description": "Search query"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of results (default: 10)"
+                }
+              ]
+            },
+            "description": "Search users by username"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current user's profile"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"bio\": \"Updated bio\",\n  \"profileImageUrl\": \"https://example.com/new-profile.jpg\",\n  \"phoneNumber\": \"+1234567890\",\n  \"birthDate\": \"1990-01-01\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Update current user's profile"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"CurrentPassword123!\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", "change-password"]
+            },
+            "description": "Change user password"
+          }
+        },
+        {
+          "name": "Follow User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/:id/follow",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id", "follow"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID to follow"
+                }
+              ]
+            },
+            "description": "Follow a user"
+          }
+        },
+        {
+          "name": "Unfollow User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/:id/follow",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id", "follow"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID to unfollow"
+                }
+              ]
+            },
+            "description": "Unfollow a user"
+          }
+        },
+        {
+          "name": "Get User Followers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:id/followers?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id", "followers"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (default: 20)"
+                }
+              ]
+            },
+            "description": "Get user's followers"
+          }
+        },
+        {
+          "name": "Get User Following",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:id/following?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":id", "following"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (default: 20)"
+                }
+              ]
+            },
+            "description": "Get users followed by user"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["users", "forgot-password"]
+            },
+            "description": "Request password reset"
+          }
+        },
+        {
+          "name": "Verify Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/verify-reset-code",
+              "host": ["{{base_url}}"],
+              "path": ["users", "verify-reset-code"]
+            },
+            "description": "Verify password reset code"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["users", "reset-password"]
+            },
+            "description": "Reset password with verified code"
+          }
+        },
+        {
+          "name": "Send Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/send-verification-email",
+              "host": ["{{base_url}}"],
+              "path": ["users", "send-verification-email"]
+            },
+            "description": "Send email verification code"
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/verify-email",
+              "host": ["{{base_url}}"],
+              "path": ["users", "verify-email"]
+            },
+            "description": "Verify email with code"
+          }
+        },
+        {
+          "name": "Update Cover Photo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coverImageUrl\": \"https://example.com/cover-photo.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/cover-photo",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", "cover-photo"]
+            },
+            "description": "Update user's cover photo"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "description": "Post management endpoints",
+      "item": [
+        {
+          "name": "Get Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts?page=1&pageSize=10&sortBy=recent",
+              "host": ["{{base_url}}"],
+              "path": ["posts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "recent",
+                  "description": "Sort order: recent, popular"
+                }
+              ]
+            },
+            "description": "Get paginated list of posts"
+          }
+        },
+        {
+          "name": "Get Posts by User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/by-user/:userId?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "by-user", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get posts by specific user"
+          }
+        },
+        {
+          "name": "Get User Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/posts/feed?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "feed"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get current user's feed"
+          }
+        },
+        {
+          "name": "Get Posts by Tag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/by-tag/:tag?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "by-tag", ":tag"],
+              "variable": [
+                {
+                  "key": "tag",
+                  "value": "camping",
+                  "description": "Tag name"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get posts by tag"
+          }
+        },
+        {
+          "name": "Get Posts by Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/by-location/:locationId?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "by-location", ":locationId"],
+              "variable": [
+                {
+                  "key": "locationId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Location ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get posts by location"
+          }
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/:id",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Get specific post by ID"
+          }
+        },
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Amazing camping experience\",\n  \"content\": \"Had an incredible time at the lake!\",\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"tags\": [\"camping\", \"nature\", \"adventure\"],\n  \"mediaUrls\": [\"https://example.com/photo1.jpg\", \"https://example.com/photo2.jpg\"],\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/posts",
+              "host": ["{{base_url}}"],
+              "path": ["posts"]
+            },
+            "description": "Create a new post"
+          }
+        },
+        {
+          "name": "Update Post",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated post title\",\n  \"content\": \"Updated content\",\n  \"tags\": [\"updated\", \"camping\"],\n  \"mediaUrls\": [\"https://example.com/updated-photo.jpg\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/:id",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Update an existing post"
+          }
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/posts/:id",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Delete a post"
+          }
+        },
+        {
+          "name": "Like Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/posts/:id/like",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id", "like"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Like a post"
+          }
+        },
+        {
+          "name": "Unlike Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/posts/:id/like",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id", "like"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Unlike a post"
+          }
+        },
+        {
+          "name": "Get Post Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/:id/comments?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get comments for a post"
+          }
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Great post!\",\n  \"parentCommentId\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/:id/comments",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                }
+              ]
+            },
+            "description": "Add a comment to a post"
+          }
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/posts/:id/comments/:commentId",
+              "host": ["{{base_url}}"],
+              "path": ["posts", ":id", "comments", ":commentId"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Post ID"
+                },
+                {
+                  "key": "commentId",
+                  "value": "550e8400-e29b-41d4-a716-446655440001",
+                  "description": "Comment ID"
+                }
+              ]
+            },
+            "description": "Delete a comment"
+          }
+        },
+        {
+          "name": "Search Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/search?query=camping&page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "camping",
+                  "description": "Search query"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Search posts"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Blogs",
+      "description": "Blog management endpoints",
+      "item": [
+        {
+          "name": "Get Blogs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs?page=1&pageSize=10&sortBy=recent",
+              "host": ["{{base_url}}"],
+              "path": ["blogs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "recent",
+                  "description": "Sort order: recent, popular, comments, likes"
+                }
+              ]
+            },
+            "description": "Get paginated list of blogs"
+          }
+        },
+        {
+          "name": "Get Blogs by User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/by-user/:userId?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "by-user", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get blogs by specific user"
+          }
+        },
+        {
+          "name": "Get Blogs by Tag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/by-tag/:tag?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "by-tag", ":tag"],
+              "variable": [
+                {
+                  "key": "tag",
+                  "value": "travel",
+                  "description": "Tag name"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get blogs by tag"
+          }
+        },
+        {
+          "name": "Get Blogs by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/by-category/:categoryId?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "by-category", ":categoryId"],
+              "variable": [
+                {
+                  "key": "categoryId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Category ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get blogs by category"
+          }
+        },
+        {
+          "name": "Get Blogs by Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/by-location/:locationId?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "by-location", ":locationId"],
+              "variable": [
+                {
+                  "key": "locationId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Location ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get blogs by location"
+          }
+        },
+        {
+          "name": "Get Blog by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Get specific blog by ID"
+          }
+        },
+        {
+          "name": "Get Blog by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/by-slug/:slug",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "by-slug", ":slug"],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "my-camping-adventure",
+                  "description": "Blog slug"
+                }
+              ]
+            },
+            "description": "Get blog by slug"
+          }
+        },
+        {
+          "name": "Create Blog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My Camping Adventure\",\n  \"content\": \"Detailed blog content about camping...\",\n  \"summary\": \"A short summary of the blog\",\n  \"categoryId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"tags\": [\"camping\", \"adventure\", \"nature\"],\n  \"featuredImageUrl\": \"https://example.com/featured-image.jpg\",\n  \"locationId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"publishedAt\": \"2023-12-01T10:00:00Z\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/blogs",
+              "host": ["{{base_url}}"],
+              "path": ["blogs"]
+            },
+            "description": "Create a new blog"
+          }
+        },
+        {
+          "name": "Update Blog",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Blog Title\",\n  \"content\": \"Updated blog content...\",\n  \"summary\": \"Updated summary\",\n  \"tags\": [\"updated\", \"camping\"],\n  \"featuredImageUrl\": \"https://example.com/updated-image.jpg\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/blogs/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Update an existing blog"
+          }
+        },
+        {
+          "name": "Delete Blog",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Delete a blog"
+          }
+        },
+        {
+          "name": "Like Blog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id/like",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id", "like"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Like a blog"
+          }
+        },
+        {
+          "name": "Unlike Blog",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id/like",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id", "like"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Unlike a blog"
+          }
+        },
+        {
+          "name": "Get Blog Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id/comments?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Get comments for a blog"
+          }
+        },
+        {
+          "name": "Add Blog Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Great blog post!\",\n  \"parentCommentId\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/blogs/:id/comments",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id", "comments"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                }
+              ]
+            },
+            "description": "Add a comment to a blog"
+          }
+        },
+        {
+          "name": "Delete Blog Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blogs/:id/comments/:commentId",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", ":id", "comments", ":commentId"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Blog ID"
+                },
+                {
+                  "key": "commentId",
+                  "value": "550e8400-e29b-41d4-a716-446655440001",
+                  "description": "Comment ID"
+                }
+              ]
+            },
+            "description": "Delete a blog comment"
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/categories",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "categories"]
+            },
+            "description": "Get all blog categories"
+          }
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/categories/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Category ID"
+                }
+              ]
+            },
+            "description": "Get specific category by ID"
+          }
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Adventure\",\n  \"description\": \"Adventure and outdoor activities\",\n  \"color\": \"#FF5733\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/blogs/categories",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "categories"]
+            },
+            "description": "Create a new blog category"
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Adventure\",\n  \"description\": \"Updated description\",\n  \"color\": \"#33FF57\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/blogs/categories/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Category ID"
+                }
+              ]
+            },
+            "description": "Update an existing category"
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blogs/categories/:id",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Category ID"
+                }
+              ]
+            },
+            "description": "Delete a category"
+          }
+        },
+        {
+          "name": "Search Blogs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/blogs/search?query=camping&page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["blogs", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "camping",
+                  "description": "Search query"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (default: 10)"
+                }
+              ]
+            },
+            "description": "Search blogs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "description": "Media upload and management endpoints",
+      "item": [
+        {
+          "name": "Upload Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "description",
+                  "value": "Photo description",
+                  "type": "text"
+                },
+                {
+                  "key": "altTag",
+                  "value": "Alt text for image",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload"]
+            },
+            "description": "Upload a single media file"
+          }
+        },
+        {
+          "name": "Upload Multiple Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload-multiple",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload-multiple"]
+            },
+            "description": "Upload multiple media files"
+          }
+        },
+        {
+          "name": "Upload Profile Picture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "description",
+                  "value": "Profile picture",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload-profile",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload-profile"]
+            },
+            "description": "Upload profile picture"
+          }
+        },
+        {
+          "name": "Upload Cover Photo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "description",
+                  "value": "Cover photo",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload-cover",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload-cover"]
+            },
+            "description": "Upload cover photo"
+          }
+        },
+        {
+          "name": "Get Media by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/:id",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Get media details by ID"
+          }
+        },
+        {
+          "name": "Get User Media",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/user/:userId?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["media", "user", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (default: 20)"
+                }
+              ]
+            },
+            "description": "Get media by user"
+          }
+        },
+        {
+          "name": "Get My Media",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/my-media?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["media", "my-media"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (default: 20)"
+                }
+              ]
+            },
+            "description": "Get current user's media"
+          }
+        },
+        {
+          "name": "Get Entity Media",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/entity/:entityId?entityType=Post&page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["media", "entity", ":entityId"],
+              "variable": [
+                {
+                  "key": "entityId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Entity ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "entityType",
+                  "value": "Post",
+                  "description": "Entity type (Post, Blog, Profile, etc.)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (default: 20)"
+                }
+              ]
+            },
+            "description": "Get media by entity"
+          }
+        },
+        {
+          "name": "Update Media",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated description\",\n  \"altTag\": \"Updated alt text\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/media/:id",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Update media details"
+          }
+        },
+        {
+          "name": "Delete Media",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/:id",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Delete media"
+          }
+        },
+        {
+          "name": "Assign Media to Entity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"entityType\": \"Post\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/media/:id/assign",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id", "assign"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Assign media to entity"
+          }
+        },
+        {
+          "name": "Unassign Media from Entity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/:id/unassign",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id", "unassign"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Unassign media from entity"
+          }
+        },
+        {
+          "name": "Get Optimized Image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/:id/optimized?width=800&height=600&format=webp&quality=85",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id", "optimized"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "width",
+                  "value": "800",
+                  "description": "Target width"
+                },
+                {
+                  "key": "height",
+                  "value": "600",
+                  "description": "Target height"
+                },
+                {
+                  "key": "format",
+                  "value": "webp",
+                  "description": "Target format"
+                },
+                {
+                  "key": "quality",
+                  "value": "85",
+                  "description": "Quality (default: 85)"
+                }
+              ]
+            },
+            "description": "Get optimized image URL"
+          }
+        },
+        {
+          "name": "Get Profile Image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/profile/:userId?size=medium",
+              "host": ["{{base_url}}"],
+              "path": ["media", "profile", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "medium",
+                  "description": "Size: small, medium, large"
+                }
+              ]
+            },
+            "description": "Get user's profile image"
+          }
+        },
+        {
+          "name": "Get Cover Image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/cover/:userId?size=medium",
+              "host": ["{{base_url}}"],
+              "path": ["media", "cover", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "User ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "medium",
+                  "description": "Size: small, medium, large"
+                }
+              ]
+            },
+            "description": "Get user's cover image"
+          }
+        },
+        {
+          "name": "Upload Post Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload/post",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload", "post"]
+            },
+            "description": "Upload media for posts"
+          }
+        },
+        {
+          "name": "Get Temporary Media",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/temporary",
+              "host": ["{{base_url}}"],
+              "path": ["media", "temporary"]
+            },
+            "description": "Get user's temporary media"
+          }
+        },
+        {
+          "name": "Delete Temporary Media",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/:id/temporary",
+              "host": ["{{base_url}}"],
+              "path": ["media", ":id", "temporary"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Media ID"
+                }
+              ]
+            },
+            "description": "Delete temporary media"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feed",
+      "description": "Feed management endpoints",
+      "item": [
+        {
+          "name": "Get Home Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feed?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["feed"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-10)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (1-50)"
+                }
+              ]
+            },
+            "description": "Get user's home feed (following users' posts)"
+          }
+        },
+        {
+          "name": "Get Discover Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feed/discover?page=1&pageSize=20&sortBy=popular",
+              "host": ["{{base_url}}"],
+              "path": ["feed", "discover"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-10)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (1-50)"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "popular",
+                  "description": "Sort by: popular, recent"
+                }
+              ]
+            },
+            "description": "Get discover feed (popular and trending content)"
+          }
+        },
+        {
+          "name": "Get Nearby Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feed/nearby?locationId=550e8400-e29b-41d4-a716-446655440000&page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["feed", "nearby"],
+              "query": [
+                {
+                  "key": "locationId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Location ID (required)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-10)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (1-50)"
+                }
+              ]
+            },
+            "description": "Get location-based feed"
+          }
+        },
+        {
+          "name": "Get Tag Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feed/tag/:tagName?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["feed", "tag", ":tagName"],
+              "variable": [
+                {
+                  "key": "tagName",
+                  "value": "camping",
+                  "description": "Tag name"
+                }
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-10)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size (1-50)"
+                }
+              ]
+            },
+            "description": "Get tag-based feed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Recommendations",
+      "description": "User recommendation endpoints",
+      "item": [
+        {
+          "name": "Get User Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/suggestions?pageNumber=1&pageSize=10&algorithm=smart",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "suggestions"],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "description": "Page size (max: 50)"
+                },
+                {
+                  "key": "algorithm",
+                  "value": "smart",
+                  "description": "Algorithm type"
+                }
+              ]
+            },
+            "description": "Get user recommendations"
+          }
+        },
+        {
+          "name": "Get Popular Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/popular?count=10",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "popular"],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "10",
+                  "description": "Number of results (max: 50)"
+                }
+              ]
+            },
+            "description": "Get popular users"
+          }
+        },
+        {
+          "name": "Get Mutual Followers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/mutual-followers?count=10",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "mutual-followers"],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "10",
+                  "description": "Number of results (max: 50)"
+                }
+              ]
+            },
+            "description": "Get mutual followers recommendations"
+          }
+        },
+        {
+          "name": "Get Recent Active Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/recent-active?count=10",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "recent-active"],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "10",
+                  "description": "Number of results (max: 50)"
+                }
+              ]
+            },
+            "description": "Get recent active users"
+          }
+        },
+        {
+          "name": "Get Similar Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/similar?count=10",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "similar"],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "10",
+                  "description": "Number of results (max: 50)"
+                }
+              ]
+            },
+            "description": "Get similar users"
+          }
+        },
+        {
+          "name": "Refresh Recommendations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "refresh"]
+            },
+            "description": "Refresh user recommendations cache"
+          }
+        },
+        {
+          "name": "Get Recommendation Reasons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/reasons/:recommendedUserId",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "reasons", ":recommendedUserId"],
+              "variable": [
+                {
+                  "key": "recommendedUserId",
+                  "value": "550e8400-e29b-41d4-a716-446655440000",
+                  "description": "Recommended user ID"
+                }
+              ]
+            },
+            "description": "Get reasons for user recommendation"
+          }
+        },
+        {
+          "name": "Get Explore Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/UserRecommendation/explore",
+              "host": ["{{base_url}}"],
+              "path": ["UserRecommendation", "explore"]
+            },
+            "description": "Get explore page recommendations"
+          }
+        }
+      ]
+    }
+  ]
+}

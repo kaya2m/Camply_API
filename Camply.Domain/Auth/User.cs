@@ -48,6 +48,11 @@ namespace Camply.Domain.Auth
         public string ProfileImageUrl { get; set; }
 
         /// <summary>
+        /// Kapak resmi URL'i
+        /// </summary>
+        public string CoverImageUrl { get; set; }
+
+        /// <summary>
         /// Kullanıcı biyografisi
         /// </summary>
         public string Bio { get; set; }

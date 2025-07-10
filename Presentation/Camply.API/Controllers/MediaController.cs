@@ -155,7 +155,7 @@ namespace Camply.API.Controllers
                 if (!allowedTypes.Contains(file.ContentType.ToLower()))
                     return BadRequest(new { message = "Only JPEG, PNG, and WebP images are allowed for profile pictures" });
 
-                var uploadResponse = await _mediaService.UploadMediaAsync(userId.Value, file);
+                var uploadResponse = await _mediaService.UploadMediaAsync(userId.Value, file, generateThumbnail: true);
 
                 await _mediaService.AssignMediaToEntityAsync(uploadResponse.Id, userId.Value, "Profile", userId.Value);
                 
@@ -177,6 +177,58 @@ namespace Camply.API.Controllers
                 _logger.LogError(ex, "Error uploading profile picture");
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     new { message = "An error occurred while uploading the profile picture" });
+            }
+        }
+
+        /// <summary>
+        /// Upload cover photo with specific sizing (800x300)
+        /// </summary>
+        [HttpPost("upload-cover")]
+        [Authorize]
+        [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit for cover photos
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<MediaUploadResponse>> UploadCoverPhoto(
+            IFormFile file,
+            [FromForm] string? description = "Cover photo")
+        {
+            try
+            {
+                var userId = _currentUserService.UserId;
+                if (!userId.HasValue)
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { message = "No file provided" });
+
+                // Validate image file
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" };
+                if (!allowedTypes.Contains(file.ContentType.ToLower()))
+                    return BadRequest(new { message = "Only JPEG, PNG, and WebP images are allowed for cover photos" });
+
+                var uploadResponse = await _mediaService.UploadCoverPhotoAsync(userId.Value, file);
+
+                await _mediaService.AssignMediaToEntityAsync(uploadResponse.Id, userId.Value, "Cover", userId.Value);
+                
+                var updateRequest = new UpdateMediaRequest
+                {
+                    Description = description,
+                    AltTag = $"Cover photo of user {userId.Value}"
+                };
+                await _mediaService.UpdateMediaDetailsAsync(uploadResponse.Id, userId.Value, updateRequest);
+
+                return CreatedAtAction(nameof(GetMediaById), new { id = uploadResponse.Id }, uploadResponse);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading cover photo");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while uploading the cover photo" });
             }
         }
 
@@ -560,7 +612,45 @@ namespace Camply.API.Controllers
                     new { message = "An error occurred while retrieving the profile image" });
             }
         }
+        /// <summary>
+        /// Get profile picture with different sizes
+        /// </summary>
+        [HttpGet("cover/{userId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProfileImageResponse>> GetCoverImage(
+            Guid userId,
+            [FromQuery] string size = "medium") // small, medium, large
+        {
+            try
+            {
+                var profileMedia = await _mediaService.GetMediaByEntityAsync(_currentUserService.UserId ?? userId, "Cover", 1, 1);
 
+                if (!profileMedia.Items.Any())
+                {
+                    return Ok(new ProfileImageResponse
+                    {
+                        Url = "https://media.thecamply.com/defaults/profile-placeholder.png",
+                        IsDefault = true,
+                        Size = size
+                    });
+                }
+
+                var media = profileMedia.Items.First();
+                return Ok(new ProfileImageResponse
+                {
+                    Url = media.Url,
+                    IsDefault = false,
+                    Size = size
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting profile image for user {userId}");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "An error occurred while retrieving the profile image" });
+            }
+        }
         /// <summary>
         /// Purge CDN cache for a media file
         /// </summary>

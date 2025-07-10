@@ -178,7 +178,6 @@ namespace Camply.API.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public IActionResult ValidateToken()
         {
-            // If we got here, the token is valid (Authorize attribute)
             return Ok(new { isValid = true });
         }
     }

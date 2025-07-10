@@ -16,6 +16,7 @@ namespace Camply.Application.Users.Interfaces
         Task<UserProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
         Task<List<UserSearchResponse>> SearchUsersByUsernameAsync(string searchTerm, int limit = 10);
         Task<bool> UpdateProfilePicture(Guid userId, string Url);
+        Task<bool> UpdateCoverPicture(Guid userId, string Url);
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
         Task<bool> FollowUserAsync(Guid currentUserId, Guid userToFollowId);
         Task<bool> UnfollowUserAsync(Guid currentUserId, Guid userToUnfollowId);

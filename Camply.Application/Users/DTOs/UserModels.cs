@@ -14,6 +14,7 @@ namespace Camply.Application.Users.DTOs
         public string Username { get; set; }
         public string Email { get; set; }
         public string ProfileImageUrl { get; set; }
+        public string CoverImageUrl { get; set; }
         public string Bio { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? LastLoginAt { get; set; }
@@ -24,5 +25,10 @@ namespace Camply.Application.Users.DTOs
         public bool IsCurrentUser { get; set; }
         public bool IsFollowedByCurrentUser { get; set; }
         public List<string> Roles { get; set; }
+    }
+
+    public class UpdateCoverPhotoRequest
+    {
+        public string CoverImageUrl { get; set; }
     }
 }
